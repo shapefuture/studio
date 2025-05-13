@@ -4,7 +4,8 @@
  * @fileOverview This file defines a Genkit flow for analyzing text content for cognitive biases.
  *
  * The flow takes text as input and uses an LLM to identify potential cognitive biases, outputting
- * an XML-like tagged format indicating the identified biases and their locations within the text.
+ * a structured format indicating the identified biases, related heuristic/cognitive skill, explanation,
+ * a suggestion for highlighting text, and a micro-challenge prompt.
  *
  * @exports analyzeTextForBias - The main function to trigger the analysis flow.
  * @exports AnalyzeTextForBiasInput - The input type for the analyzeTextForBias function.
@@ -13,30 +14,55 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { LLMInsight } from '@/types'; // Ensure LLMInsight is imported for type reference if needed
 
 const AnalyzeTextForBiasInputSchema = z.object({
   text: z.string().describe('The text content to analyze for cognitive biases.'),
+  userGoal: z.string().optional().describe('The user\'s current learning goal, if available, to tailor the insight.'),
 });
 export type AnalyzeTextForBiasInput = z.infer<typeof AnalyzeTextForBiasInputSchema>;
 
 const AnalyzeTextForBiasOutputSchema = z.object({
-  analysis: z
-    .string()
-    .describe(
-      'An XML-like tagged output format indicating the identified biases and their locations within the text.'
-    ),
+  pattern_type: z.string().describe("Name of the cognitive bias or pattern detected (e.g., Confirmation Bias, Anchoring). Output 'none' if no specific bias is clear but there's room for reflection, or if no significant pattern is detected at all."),
+  hc_related: z.string().describe("The ID of the most relevant Heuristic or Cognitive skill related to the pattern (e.g., 'bias-detection', 'critique', 'assumption-spotting'). Use 'general-reflection' if no specific HC fits well but reflection is useful, or 'none' if pattern_type is 'none' and no reflection is warranted."),
+  explanation: z.string().describe("Brief explanation of why this pattern might be present in the text, or a general reflection point if pattern_type is 'none'. Keep it concise and youth-friendly. If pattern_type is 'none' and hc_related is 'none', this can be an empty string."),
+  highlight_suggestion_css_selector: z.string().optional().describe("A general CSS selector suggestion if a specific part of the text is key (e.g., '.sentence-3' or '.keyword-X'). Be generic if unsure. Skip if not applicable or if pattern_type is 'none'."),
+  micro_challenge_prompt: z.string().describe("A short, actionable question or prompt to encourage the user to reflect or consider alternatives. E.g., \"What's one assumption here?\" or \"Is there another way to look at this?\". If pattern_type is 'none' and hc_related is 'none', this can be an empty string."),
 });
 export type AnalyzeTextForBiasOutput = z.infer<typeof AnalyzeTextForBiasOutputSchema>;
 
+
 export async function analyzeTextForBias(input: AnalyzeTextForBiasInput): Promise<AnalyzeTextForBiasOutput> {
-  return analyzeTextForBiasFlow(input);
+  const result = await analyzeTextForBiasFlow(input);
+   // Ensure default values for optional fields if they are undefined
+  return {
+    ...result,
+    highlight_suggestion_css_selector: result.highlight_suggestion_css_selector || undefined,
+  };
 }
 
 const analyzeTextForBiasPrompt = ai.definePrompt({
   name: 'analyzeTextForBiasPrompt',
   input: {schema: AnalyzeTextForBiasInputSchema},
   output: {schema: AnalyzeTextForBiasOutputSchema},
-  prompt: `You are a cognitive bias detection expert. Analyze the following text content and identify any potential cognitive biases. Output the analysis in an XML-like tagged format, indicating the bias type and its location within the text.\n\nText Content:\n{{{text}}}`,
+  prompt: `You are an expert cognitive bias detector. Analyze the provided text segment.
+Your goal is to identify potential cognitive patterns or biases.
+The user's current learning goal is: "{{#if userGoal}}{{userGoal}}{{else}}general improvement in cognitive skills{{/if}}". Tailor your insight if relevant.
+
+Output your findings in the format specified by the output schema.
+Specifically, provide:
+- pattern_type: The name of the bias or pattern (e.g., Confirmation Bias, Anchoring, Hasty Generalization). If no specific bias is clear but reflection is useful, use 'none'. If no bias and no reflection point is warranted, also use 'none'.
+- hc_related: The most relevant HC_ID (e.g., 'bias-detection', 'critique', 'assumption-spotting'). Use 'general-reflection' if pattern_type is 'none' and reflection is useful. If pattern_type is 'none' and no reflection is warranted, use 'none'.
+- explanation: A brief, youth-friendly explanation of why this pattern might be present, or a general reflection point if pattern_type is 'none'. If pattern_type and hc_related are 'none', provide an empty string.
+- highlight_suggestion_css_selector (optional): A CSS selector for a key part of the text (e.g., ".sentence-3"). Skip if not applicable or if pattern_type is 'none'.
+- micro_challenge_prompt: A short, actionable question to encourage reflection. E.g., "What's one assumption here?". If pattern_type and hc_related are 'none', provide an empty string.
+
+Focus on common biases like Confirmation Bias, Anchoring Bias, Availability Heuristic, Hasty Generalization, Straw Man, etc.
+If no significant cognitive pattern or bias is detected, and no reflection seems particularly warranted, set pattern_type to 'none', hc_related to 'none', and explanation and micro_challenge_prompt to empty strings.
+
+Text to Analyze:
+{{{text}}}
+`,
 });
 
 const analyzeTextForBiasFlow = ai.defineFlow(
@@ -45,8 +71,18 @@ const analyzeTextForBiasFlow = ai.defineFlow(
     inputSchema: AnalyzeTextForBiasInputSchema,
     outputSchema: AnalyzeTextForBiasOutputSchema,
   },
-  async input => {
+  async (input: AnalyzeTextForBiasInput) => {
     const {output} = await analyzeTextForBiasPrompt(input);
-    return output!;
+    if (!output) {
+      // Fallback in case LLM output is empty or invalid, though Zod schema validation should catch issues.
+      // This is a safeguard.
+      return {
+        pattern_type: 'none',
+        hc_related: 'none',
+        explanation: '',
+        micro_challenge_prompt: '',
+      };
+    }
+    return output;
   }
 );
