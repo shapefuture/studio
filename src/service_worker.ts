@@ -97,6 +97,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
            sendResponse({ status: "success_cached", insight: cached });
            if (sender.tab?.id) {
              chrome.tabs.sendMessage(sender.tab.id, { action: "showMindframeCoPilotInsight", insightData: cached });
+              if (cached.highlight_suggestion_css_selector) {
+                chrome.tabs.sendMessage(sender.tab.id, { action: "highlightElementOnPage", selector: cached.highlight_suggestion_css_selector });
+              }
            }
            return;
         }
@@ -110,7 +113,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // The output from analyzeTextForBias is already in LLMInsight format
         const llmInsight: LLMInsight = analysisOutput;
         
-        if (llmInsight.pattern_type !== 'none') {
+        if (llmInsight.pattern_type !== 'none' || (llmInsight.pattern_type === 'none' && llmInsight.hc_related !=='none')) {
           cacheInsight(visibleText, llmInsight);
         }
         
@@ -118,6 +121,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Send the insight to the content script of the tab that requested it
         if (sender.tab?.id) {
           chrome.tabs.sendMessage(sender.tab.id, { action: "showMindframeCoPilotInsight", insightData: llmInsight });
+          if (llmInsight.highlight_suggestion_css_selector) {
+            chrome.tabs.sendMessage(sender.tab.id, { action: "highlightElementOnPage", selector: llmInsight.highlight_suggestion_css_selector });
+          }
         }
 
       } catch (error) {
