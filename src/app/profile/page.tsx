@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -14,9 +15,10 @@ import { sjtScenariosData } from '@/assets/data/sjtScenariosData';
 import { onboardingGoalOptions } from '@/assets/data/onboardingGoals';
 import { starterQuestsData } from '@/assets/data/starterQuestsData';
 import { mindframeStore } from '@/lib/MindframeStore';
-import { gamificationService } from '@/lib/gamificationService';
+import { gamificationService, WXP_THRESHOLDS } from '@/lib/gamificationService'; // Added WXP_THRESHOLDS import
 import { User, Zap, Trophy, BarChart3, Edit3, ShieldQuestion, BookOpen, Lightbulb, CheckSquare } from 'lucide-react';
 import Image from 'next/image';
+import React from 'react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -91,12 +93,11 @@ export default function ProfilePage() {
   }
 
   const wxpForNextLevel = gamificationService.getWXPForNextLevel(gamification.level);
-  const progressToNextLevel = wxpForNextLevel === Infinity ? 100 : (gamification.wxp / wxpForNextLevel) * 100;
+  const progressToNextLevel = wxpForNextLevel === Infinity ? 100 : ((gamification.wxp - (WXP_THRESHOLDS[gamification.level] || 0)) / (wxpForNextLevel - (WXP_THRESHOLDS[gamification.level] || 0))) * 100;
   
   // Calculate WXP earned within the current level
-  const previousLevelThreshold = WXP_THRESHOLDS[gamification.level -1] || 0;
   const currentLevelWXPProgress = gamification.wxp - (WXP_THRESHOLDS[gamification.level] || 0);
-  const wxpNeededForNextLevelInCurrent = (WXP_THRESHOLDS[gamification.level + 1] || Infinity) - (WXP_THRESHOLDS[gamification.level] || 0);
+  const wxpNeededForNextLevelInCurrent = (WXP_THRESHOLDS[gamification.level + 1] || wxpForNextLevel) - (WXP_THRESHOLDS[gamification.level] || 0);
 
 
   return (
@@ -198,7 +199,7 @@ export default function ProfilePage() {
              <p className="text-xs text-muted-foreground text-right mt-1">
               {wxpForNextLevel === Infinity 
                 ? "Max Level Reached!" 
-                : `${currentLevelWXPProgress} / ${wxpNeededForNextLevelInCurrent} WXP to Level ${gamification.level + 1}`}
+                : `${currentLevelWXPProgress} / ${wxpNeededForNextLevelInCurrent > 0 ? wxpNeededForNextLevelInCurrent : 'N/A'} WXP to Level ${gamification.level + 1}`}
             </p>
           </div>
           <div>
@@ -247,3 +248,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
