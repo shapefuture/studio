@@ -1,0 +1,26 @@
+# **App Name**: Local Cognitive Coach - React/Vite Edition
+
+## Core Features:
+
+- AI-Powered Content Analysis: Analyze visible text content using a Cloudflare Worker LLM proxy (google/gemini-2.0-flash-exp:free or mistralai/mistral-small-3.1-24b:free via OpenRouter API) to detect potential cognitive biases, leveraging a prompt that instructs the model to output an XML-like tagged output format, acting as a tool for identifying relevant patterns. The analysis is cached for efficiency and offline support.
+- Insight Card UI (React/Tailwind): Display insights as animated React-based cards (InsightCard.tsx) with challenge prompts and dismiss options. The card is rendered via a content script and styled with Tailwind CSS, designed to integrate seamlessly into the host page either within an iframe, shadow DOM, or as a web component. The card provides actionable steps and links to relevant HC Gym exercises.
+- Gamification System (Local Storage): Track user progress via WXP, levels, completed challenges, and active quests. GamificationService manages WXP accumulation and level progression, storing user data locally using MindframeStore. Gamification mechanics incentivize engagement and skill development.
+- HC Gym Interface (React/Router): Offer a 'HC Gym' (GymView.tsx, HcDetailView.tsx, DrillView.tsx) with detail views and practice drills for cognitive skills. The gym provides a structured learning environment for users to improve their cognitive abilities. Each HC (e.g., #critique, #evidencebased) includes explanations and interactive drills for practical application.
+- User Onboarding & Profile Creation: Onboarding process (OnboardingView.tsx) guides new users through a series of steps to establish their cognitive profile. The process includes interest selection, SJT completion, and HC familiarity ratings. The resulting CognitiveProfileV1 is stored locally and used to personalize the co-pilot experience.
+- Local Data Storage (MindframeStore): Persistent local data store (MindframeStore.ts) utilizing chrome.storage.local (or browser.storage.local for cross-browser compatibility) to manage user profiles, gamification data, and cached insights. The store includes version migration to ensure data compatibility across updates.
+- Cloudflare Worker LLM Proxy: Cloudflare Worker (proxy_worker/src/index.ts) acts as an intermediary for LLM requests to OpenRouter API. It validates requests, constructs prompts, retrieves API keys from secrets, and returns responses. The worker also handles CORS headers for secure communication.
+- React-Based Popup UI (SPA): Single Page Application (SPA) style popup UI managed by React Router. The popup includes routes for onboarding, profile, gym, HC details, and drills, providing a cohesive and navigable user experience.
+- Proactive Content Monitoring (Content Script): Proactive content monitoring via content script (content_script.tsx). The script analyzes visible text content, triggers LLM analysis, and displays Insight Cards based on the analysis results. The content script integrates with the host page to provide real-time cognitive assistance.
+
+## Style Guidelines:
+
+- Use a calm blue (#ADD8E6) as the primary color to promote focus and trust. This color should be dominant in the UI's headers, primary buttons, and other key elements.
+- Use a neutral gray (#F5F5F5) for background to minimize distractions. This provides a clean backdrop that allows content to stand out.
+- Accent color: Use a vibrant green (#32CD32) for positive feedback and challenge acceptance to give the user a feeling of progression. This is used for success messages, confirmations, and to highlight completed tasks.
+- Ensure high readability for all text elements. Use a clear, sans-serif font optimized for screen reading. Font sizes should be carefully chosen to ensure comfortable reading on various screen sizes and resolutions.
+- Employ simple, intuitive icons for navigation and feature representation. Icons should be consistent in style and used sparingly to avoid visual clutter. Use established icon libraries like Font Awesome or Material Icons.
+- Subtle animations to guide the user's attention to insights and challenges. Animations should be used to enhance the user experience without being distracting. Examples include fade-in effects, subtle transitions, and progress indicators.
+- Maintain a clean and organized layout with consistent spacing and alignment. Use a grid system to ensure elements are properly aligned and responsive across different screen sizes. Prioritize content and minimize unnecessary visual elements.
+- Use a consistent heading structure (H1, H2, H3, etc.) to improve content organization and readability. Headings should be visually distinct from body text and should accurately reflect the content hierarchy.
+- Provide tooltips or labels for icons to ensure clarity, especially for less common icons. This helps users understand the meaning and function of each icon.
+- Use animation to provide feedback to user interactions. For example, button clicks should trigger a subtle animation to indicate that the action has been registered.
