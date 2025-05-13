@@ -1,49 +1,66 @@
-
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { InsightCard } from '@/components/insight-card';
 import type { UiInsight } from '@/types';
-import { ArrowRight, BookOpen, Brain, Sparkles, UserCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, Brain, Sparkles, UserCheck, ThumbsUp, XCircle } from 'lucide-react';
 import React from 'react';
 import { mindframeStore } from '@/lib/MindframeStore';
 import { APP_NAME } from '@/lib/constants';
 import Image from 'next/image';
 
 
-const sampleLLMInsight: UiInsight = {
+const sampleLLMInsightInitial: UiInsight = {
   id: 'llm_sample_01',
   title: 'Potential Bias: Confirmation Bias',
   sourceType: 'llm',
-  hcId: 'bias-detection', // Matches one of the HC IDs from hcLibraryData
+  hcId: 'bias-detection', 
   explanation: "The analyzed text appears to heavily favor sources that confirm a pre-existing viewpoint on Topic Y, while alternative perspectives are downplayed or omitted. This pattern is often indicative of confirmation bias.",
   challengePrompt: "What are two potential weaknesses or counter-arguments to the main point made in the text, even if you generally agree with it?",
   timestamp: Date.now(),
 };
 
-const sampleOfflineInsight: UiInsight = {
+const sampleOfflineInsightInitial: UiInsight = {
   id: 'offline_tip_01',
   title: 'Quick Tip: The Five Whys',
   sourceType: 'offline',
-  hcId: 'critique', // Matches one of the HC IDs
+  hcId: 'critique', 
   explanation: "When facing a problem or a strong assertion, try asking 'Why?' five times to drill down to the root cause or underlying assumptions. This can reveal deeper insights.",
   timestamp: Date.now(),
 };
 
 
 export default function HomePage() {
-  const [onboardingComplete, setOnboardingComplete] = React.useState<boolean | null>(null); // null for loading state
+  const [onboardingComplete, setOnboardingComplete] = React.useState<boolean | null>(null);
   const [isMounted, setIsMounted] = React.useState(false);
+  
+  const [displayedInsights, setDisplayedInsights] = React.useState<UiInsight[]>([]);
 
   React.useEffect(() => {
     setIsMounted(true);
+    setDisplayedInsights([sampleLLMInsightInitial, sampleOfflineInsightInitial]); // Initialize with samples
+
     const checkOnboarding = async () => {
       const storeState = await mindframeStore.get();
       setOnboardingComplete(storeState.profile?.onboardingCompleted || false);
     };
     checkOnboarding();
   }, []);
+
+  const handleDismissInsight = (id: string) => {
+    setDisplayedInsights(prev => prev.filter(insight => insight.id !== id));
+    console.log('Dismissed Insight on HomePage:', id);
+  };
+
+  const handleAcceptChallengeHome = (id: string, hcId?: string) => {
+    setDisplayedInsights(prev => prev.map(insight => 
+      insight.id === id 
+        ? { ...insight, challengePrompt: `Challenge accepted! Keep this in mind: "${insight.challengePrompt}"` } 
+        : insight
+    ));
+    console.log('Challenge Accepted on HomePage:', id, hcId);
+  };
 
 
   if (!isMounted || onboardingComplete === null) {
@@ -102,20 +119,29 @@ export default function HomePage() {
         </CardFooter>
       </Card>
 
-      <div className="my-12">
-        <h2 className="text-3xl font-semibold mb-6 text-foreground text-center">Example Insights</h2>
-        <div className="grid md:grid-cols-2 gap-8">
-            <InsightCard 
-                insight={sampleLLMInsight} 
-                onDismiss={(id) => console.log('Dismissed LLM Insight:', id)}
-                onChallengeAccepted={(id, hcId) => console.log('LLM Challenge Accepted:', id, hcId)}
-            />
-            <InsightCard 
-                insight={sampleOfflineInsight}
-                onDismiss={(id) => console.log('Dismissed Offline Insight:', id)}
-            />
+      {displayedInsights.length > 0 && (
+        <div className="my-12">
+          <h2 className="text-3xl font-semibold mb-6 text-foreground text-center">Example Insights</h2>
+          <div className="grid md:grid-cols-2 gap-8">
+              {displayedInsights.map(insight => (
+                <InsightCard 
+                    key={insight.id}
+                    insight={insight} 
+                    onDismiss={handleDismissInsight}
+                    onChallengeAccepted={handleAcceptChallengeHome}
+                />
+              ))}
+          </div>
         </div>
-      </div>
+      )}
+      {isMounted && displayedInsights.length === 0 && onboardingComplete && (
+         <Card className="my-12 text-center p-8 shadow-lg rounded-xl bg-card">
+            <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <CardTitle className="text-2xl text-muted-foreground">No Sample Insights to Display</CardTitle>
+            <CardDescription className="text-md text-muted-foreground mt-2">You've dismissed all sample insights. Explore the app!</CardDescription>
+         </Card>
+      )}
+
 
       <div className="grid md:grid-cols-2 gap-8 mt-16">
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
@@ -139,11 +165,11 @@ export default function HomePage() {
           <CardHeader className="bg-secondary/20">
             <CardTitle className="flex items-center text-xl">
              <Sparkles className="mr-3 h-7 w-7 text-accent" />
-              Challenge Yourself
+              Proactive Co-Pilot
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Our AI-powered analysis (coming soon) helps you spot potential biases. Use challenge prompts to think differently and expand your perspectives.</p>
+            <p className="text-muted-foreground">Our AI-powered analysis helps you spot potential biases as you browse. Use challenge prompts to think differently and expand your perspectives.</p>
           </CardContent>
            <CardFooter className="bg-muted/20">
             <Button variant="link" className="text-accent font-semibold cursor-default">Stay Curious & Aware</Button>

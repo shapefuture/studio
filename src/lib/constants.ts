@@ -1,8 +1,7 @@
-
 import type { CognitiveProfileV1, GamificationData } from '@/types';
 // HCS, SJT_QUESTIONS are now in src/assets/data/
 
-export const APP_NAME = 'Local Cognitive Coach';
+export const APP_NAME = 'Mindframe';
 
 export const INTERESTS_OPTIONS = [
   { id: 'tech', label: 'Technology' },

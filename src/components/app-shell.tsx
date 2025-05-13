@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -10,7 +9,6 @@ import {
   Brain,
   BookOpen,
   Settings,
-  LogOut,
   ChevronDown,
   PanelLeftOpen,
   PanelLeftClose
@@ -42,6 +40,7 @@ import {
 import { Logo } from '@/components/logo';
 import { APP_NAME } from '@/lib/constants';
 import { Toaster } from '@/components/ui/toaster';
+import { useToast } from '@/hooks/use-toast'; // Added
 import { cn } from '@/lib/utils';
 import React from 'react';
 
@@ -62,15 +61,18 @@ export function AppShell({ children }: AppShellProps) {
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const profile = localStorage.getItem('cognitiveProfile');
-      if (profile) {
-        try {
-          const parsedProfile = JSON.parse(profile);
-          setOnboardingComplete(parsedProfile.onboardingCompleted || false);
-        } catch (e) {
-          console.error("Failed to parse profile from localStorage", e);
+      // Check localStorage directly for onboarding status
+      const mindframeData = localStorage.getItem('mindframe_mvp_data_v1');
+      if (mindframeData) {
+          try {
+              const parsedData = JSON.parse(mindframeData);
+              setOnboardingComplete(parsedData.profile?.onboardingCompleted || false);
+          } catch (e) {
+              console.error("Failed to parse Mindframe data from localStorage", e);
+              setOnboardingComplete(false);
+          }
+      } else {
           setOnboardingComplete(false);
-        }
       }
     }
   }, []);
@@ -95,6 +97,7 @@ export function AppShell({ children }: AppShellProps) {
 function AppSidebar({ onboardingComplete }: { onboardingComplete: boolean }) {
   const pathname = usePathname();
   const { open, toggleSidebar, isMobile, state } = useSidebar();
+  const { toast } = useToast();
 
   const filteredNavItems = navItems.filter(item => {
     if (item.href === '/onboarding' && onboardingComplete) {
@@ -145,6 +148,7 @@ function AppSidebar({ onboardingComplete }: { onboardingComplete: boolean }) {
         <SidebarMenu>
           <SidebarMenuItem>
              <SidebarMenuButton
+                onClick={() => toast({ title: "Settings", description: "Settings page coming soon!"})}
                 className={cn(
                   "w-full justify-start",
                   state === "collapsed" && "justify-center"
@@ -185,6 +189,7 @@ function AppHeader() {
 }
 
 function UserMenu() {
+  const { toast } = useToast();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -205,14 +210,9 @@ function UserMenu() {
             <span>Profile</span>
           </DropdownMenuItem>
         </Link>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast({ title: "Settings", description: "Settings page coming soon!"})}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
