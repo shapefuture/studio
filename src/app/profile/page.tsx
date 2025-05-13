@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -13,6 +12,7 @@ import { DEFAULT_COGNITIVE_PROFILE, DEFAULT_GAMIFICATION_DATA, INTERESTS_OPTIONS
 import { hcLibraryData } from '@/assets/data/hcLibraryData';
 import { sjtScenariosData } from '@/assets/data/sjtScenariosData';
 import { onboardingGoalOptions } from '@/assets/data/onboardingGoals';
+import { starterQuestsData } from '@/assets/data/starterQuestsData';
 import { mindframeStore } from '@/lib/MindframeStore';
 import { gamificationService } from '@/lib/gamificationService';
 import { User, Zap, Trophy, BarChart3, Edit3, ShieldQuestion, BookOpen, Lightbulb, CheckSquare } from 'lucide-react';
@@ -38,12 +38,40 @@ export default function ProfilePage() {
 
   const profile = storeState?.profile || DEFAULT_COGNITIVE_PROFILE;
   const gamification = storeState?.gamification || DEFAULT_GAMIFICATION_DATA;
+  
   const activeQuests = storeState?.activeQuests || [];
   const completedQuestIds = storeState?.completedQuestIds || [];
-   // For display, combine with starterQuestsData to get quest details
-  const allQuestsForDisplay = [...activeQuests, ...completedQuestIds.map(id => 
-    (storeState?.activeQuests.find(q => q.id === id) || ( (globalThis as any).starterQuestsData || []).find( (q: QuestType) => q.id ===id) as QuestType | undefined )
-  )].filter(Boolean) as QuestType[];
+
+  const allQuestsForDisplay = React.useMemo(() => {
+    if (!storeState) return [];
+    
+    const displayedQuestsMap = new Map<string, QuestType>();
+
+    // Add active quests
+    activeQuests.forEach(quest => displayedQuestsMap.set(quest.id, quest));
+
+    // Add completed quests, ensuring details are fetched
+    completedQuestIds.forEach(id => {
+      if (!displayedQuestsMap.has(id)) {
+        // Try to find in active quests first (it might have just been completed)
+        let questDetail = activeQuests.find(q => q.id === id);
+        if (!questDetail) {
+          // If not in active (e.g. completed in a previous session), find in starter data
+          questDetail = starterQuestsData.find(q => q.id === id);
+        }
+        if (questDetail) {
+          displayedQuestsMap.set(id, { ...questDetail, isCompleted: true });
+        }
+      } else {
+        // If already in map (was active), mark as completed for display
+        const existingQuest = displayedQuestsMap.get(id);
+        if (existingQuest) {
+            displayedQuestsMap.set(id, { ...existingQuest, isCompleted: true });
+        }
+      }
+    });
+    return Array.from(displayedQuestsMap.values());
+  }, [storeState, activeQuests, completedQuestIds]);
 
 
   const getInterestLabel = (id: string) => INTERESTS_OPTIONS.find(opt => opt.id === id)?.label || id;
@@ -64,7 +92,11 @@ export default function ProfilePage() {
 
   const wxpForNextLevel = gamificationService.getWXPForNextLevel(gamification.level);
   const progressToNextLevel = wxpForNextLevel === Infinity ? 100 : (gamification.wxp / wxpForNextLevel) * 100;
-  const currentLevelThreshold = gamificationService['WXP_THRESHOLDS']?.[gamification.level] ?? gamification.wxp;
+  
+  // Calculate WXP earned within the current level
+  const previousLevelThreshold = WXP_THRESHOLDS[gamification.level -1] || 0;
+  const currentLevelWXPProgress = gamification.wxp - (WXP_THRESHOLDS[gamification.level] || 0);
+  const wxpNeededForNextLevelInCurrent = (WXP_THRESHOLDS[gamification.level + 1] || Infinity) - (WXP_THRESHOLDS[gamification.level] || 0);
 
 
   return (
@@ -74,10 +106,11 @@ export default function ProfilePage() {
           <Image 
             src={`https://picsum.photos/seed/${profile.interests.join('') || 'profileBg'}/1200/300`} 
             alt="Abstract profile background" 
-            layout="fill" 
-            objectFit="cover" 
+            fill={true}
+            style={{objectFit:"cover"}}
             className="opacity-70"
             data-ai-hint="abstract pattern"
+            priority
           />
           <div className="absolute inset-0 bg-black/40 flex flex-col justify-between p-6">
             <div className="flex items-center">
@@ -162,18 +195,20 @@ export default function ProfilePage() {
             <h4 className="font-semibold text-lg">Level: <Badge className="text-xl px-3 py-1 bg-accent text-accent-foreground">{gamification.level}</Badge></h4>
             <p className="text-sm text-muted-foreground mt-1">Experience Points (WXP): {gamification.wxp}</p>
             <Progress value={progressToNextLevel} className="mt-2 h-3 [&>div]:bg-accent" />
-            <p className="text-xs text-muted-foreground text-right mt-1">
-              {gamification.wxp - currentLevelThreshold} / {wxpForNextLevel - currentLevelThreshold} WXP to Level {gamification.level + 1}
+             <p className="text-xs text-muted-foreground text-right mt-1">
+              {wxpForNextLevel === Infinity 
+                ? "Max Level Reached!" 
+                : `${currentLevelWXPProgress} / ${wxpNeededForNextLevelInCurrent} WXP to Level ${gamification.level + 1}`}
             </p>
           </div>
           <div>
             <h4 className="font-semibold text-lg mb-2">Completed Drills:</h4>
             {gamification.completedDrillIds.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {gamification.completedDrillIds.slice(0,10).map(id => ( // Show recent 10
+                {gamification.completedDrillIds.slice(0,10).map(id => ( 
                   <Badge key={id} variant="secondary" className="font-normal bg-green-100 text-green-700 border-green-300">Drill {id.substring(0,15)}...</Badge>
                 ))}
-                 {gamification.completedDrillIds.length > 10 && <Badge variant="outline">...and more</Badge>}
+                 {gamification.completedDrillIds.length > 10 && <Badge variant="outline">...and {gamification.completedDrillIds.length - 10} more</Badge>}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No drills completed yet. Time to hit the Gym!</p>
@@ -184,15 +219,15 @@ export default function ProfilePage() {
             {allQuestsForDisplay.length > 0 ? (
               <ul className="space-y-2">
                 {allQuestsForDisplay.map((quest) => (
-                  <li key={quest.id} className={`p-3 border rounded-md text-sm ${completedQuestIds.includes(quest.id) ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                  <li key={quest.id} className={`p-3 border rounded-md text-sm ${quest.isCompleted || completedQuestIds.includes(quest.id) ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
                     <div className="flex justify-between items-center">
-                      <span className={`font-medium ${completedQuestIds.includes(quest.id) ? 'text-green-700' : 'text-blue-700'}`}>{quest.title}</span>
-                      {completedQuestIds.includes(quest.id) ? 
+                      <span className={`font-medium ${quest.isCompleted || completedQuestIds.includes(quest.id) ? 'text-green-700' : 'text-blue-700'}`}>{quest.title}</span>
+                      {quest.isCompleted || completedQuestIds.includes(quest.id) ? 
                         <Badge variant="default" className="bg-green-500 text-white"><CheckSquare className="mr-1 h-4 w-4"/>Completed</Badge> :
                         <Badge variant="outline" className="border-blue-500 text-blue-600">Active</Badge>
                       }
                     </div>
-                    <p className={`text-xs mt-1 ${completedQuestIds.includes(quest.id) ? 'text-green-600' : 'text-blue-600'}`}>{quest.description} (Reward: {quest.rewardWXP} WXP)</p>
+                    <p className={`text-xs mt-1 ${quest.isCompleted || completedQuestIds.includes(quest.id) ? 'text-green-600' : 'text-blue-600'}`}>{quest.description} (Reward: {quest.rewardWXP} WXP)</p>
                   </li>
                 ))}
               </ul>

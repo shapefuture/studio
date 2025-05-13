@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,8 +10,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import type { CognitiveProfileV1, SJTScenario, HC as HCType } from '@/types'; // Renamed HC to HCType to avoid conflict
-import { INTERESTS_OPTIONS, DEFAULT_COGNITIVE_PROFILE } from '@/lib/constants';
+import type { CognitiveProfileV1, SJTScenario, HC as HCType } from '@/types';
+import { INTERESTS_OPTIONS, DEFAULT_COGNITIVE_PROFILE, APP_NAME } from '@/lib/constants';
 import { hcLibraryData } from '@/assets/data/hcLibraryData';
 import { sjtScenariosData } from '@/assets/data/sjtScenariosData';
 import { onboardingGoalOptions, type OnboardingGoalOption } from '@/assets/data/onboardingGoals';
@@ -40,60 +39,68 @@ export default function OnboardingPage() {
     const loadProfile = async () => {
       const storeState = await mindframeStore.get();
       if (storeState.profile && storeState.profile.onboardingCompleted) {
-        toast({ title: "Onboarding Complete", description: "You've already set up your profile." });
-        router.push('/profile');
-      } else if (storeState.profile) {
-        // Pre-fill from partially completed profile if exists
+        // If already completed, maybe allow re-onboarding or go to profile.
+        // For now, let's assume if they land here and it's complete, they want to re-do or view.
+        // If just viewing, profile page is better.
+        // If re-doing, then current logic is fine but might want a "Start Over" button somewhere.
+        // Let's prefill and allow them to go through.
         setInterests(storeState.profile.interests || []);
         setSjtAnswers(storeState.profile.sjtAnswers || []);
         setHcFamiliarity(storeState.profile.hcFamiliarity || {});
         setUserGoal(storeState.profile.userGoal || '');
+        // We don't auto-redirect to /profile here to allow re-onboarding if desired.
+        // A message could be shown: "You've completed onboarding. Go to Profile or update selections."
       }
     };
     loadProfile();
-  }, [router, toast]);
+  }, []);
 
   const handleNext = async () => {
-    if (currentStep < TOTAL_STEPS) {
+    if (currentStep === TOTAL_STEPS - 1) { // Transitioning from penultimate step (Goal Select) to last (Cognitive Mirror)
+      const onboardingInput = { interests, sjtAnswers, hcFamiliarity, userGoal };
+      if (!userGoal) {
+        toast({ title: "Goal Selection Needed", description: "Please select your primary goal before proceeding.", variant: "destructive" });
+        return;
+      }
+      try {
+        const finalProfile = await processOnboardingData(onboardingInput);
+        setGeneratedProfile(finalProfile);
+        setCurrentStep(currentStep + 1); // Move to Cognitive Mirror step
+        toast({
+          title: "Profile Snapshot Generated!",
+          description: "Review your cognitive snapshot below.",
+        });
+      } catch (error) {
+        console.error("Error processing onboarding data for summary:", error);
+        toast({
+          title: "Error",
+          description: "Could not generate profile summary. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } else if (currentStep < TOTAL_STEPS) {
       setCurrentStep(currentStep + 1);
-    } else {
-      await finishOnboarding();
+    } else { // On the final step (Cognitive Mirror), button click means finish.
+      if (!generatedProfile) {
+         // This case should ideally not happen if button is disabled until profile is generated.
+        toast({ title: "Profile Not Ready", description: "Please wait for profile summary to load or try again.", variant: "destructive"});
+        return;
+      }
+      toast({
+        title: "Profile Setup Complete!",
+        description: `Welcome to ${APP_NAME}! Your cognitive coach is ready.`,
+        className: "bg-accent text-accent-foreground",
+      });
+      router.push('/profile');
+      setTimeout(() => {
+        if (typeof window !== 'undefined') window.location.reload();
+      } , 500); 
     }
   };
 
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const finishOnboarding = async () => {
-    const onboardingInput = { interests, sjtAnswers, hcFamiliarity, userGoal };
-    try {
-      const finalProfile = await processOnboardingData(onboardingInput);
-      setGeneratedProfile(finalProfile); // For the cognitive mirror step
-      toast({
-        title: "Profile Setup Complete!",
-        description: "Welcome! Your cognitive coach is ready.",
-        variant: "default",
-        className: "bg-accent text-accent-foreground",
-      });
-      // The actual redirect to /profile will happen from the Cognitive Mirror step
-      // or if we skip the mirror, it would happen here.
-      // For now, let's assume the Cognitive Mirror is the last step before navigating.
-      // If TOTAL_STEPS included the mirror, then this function isn't truly "finish" yet.
-      // Let's adjust TOTAL_STEPS to be the number of input steps.
-      // The actual finish and redirect will be on the button in the mirror step.
-      router.push('/profile'); // Temporary: go to profile after processing.
-                               // Ideally, Cognitive Mirror step would have its own "Go to Profile" button.
-      setTimeout(() => window.location.reload(), 500); // To refresh AppShell nav
-    } catch (error) {
-      console.error("Error finishing onboarding:", error);
-      toast({
-        title: "Error",
-        description: "Could not complete onboarding. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -226,21 +233,38 @@ export default function OnboardingPage() {
               <h3 className="text-xl font-semibold mb-2 text-foreground flex items-center"><UserCheck className="mr-2 text-accent h-6 w-6"/>Your Cognitive Snapshot</h3>
               <p className="text-sm text-muted-foreground mb-6">Here's a summary based on your input. This will help tailor your coaching.</p>
               {generatedProfile ? (
-                <div className="space-y-4 p-4 border rounded-lg bg-secondary/30">
-                  <div><strong>Primary Goal:</strong> {onboardingGoalOptions.find(g => g.id === generatedProfile.userGoal)?.label || 'Not set'}</div>
-                  <div><strong>Interests:</strong> {generatedProfile.interests.map(id => INTERESTS_OPTIONS.find(i=>i.id===id)?.label).join(', ') || 'None selected'}</div>
+                <div className="space-y-4 p-4 border rounded-lg bg-secondary/30 shadow-inner">
+                  <div><strong>Primary Goal:</strong> <span className="font-medium">{onboardingGoalOptions.find(g => g.id === generatedProfile.userGoal)?.label || 'Not set'}</span></div>
+                  <div><strong>Interests:</strong> <span className="font-medium">{generatedProfile.interests.map(id => INTERESTS_OPTIONS.find(i=>i.id===id)?.label).join(', ') || 'None selected'}</span></div>
+                  
+                  <div className="mt-2">
+                    <h4 className="font-medium text-sm">HC Familiarity Ratings:</h4>
+                    <ul className="list-disc list-inside pl-4 text-sm">
+                    {Object.entries(generatedProfile.hcFamiliarity).map(([hcId, rating]) => {
+                        const hc = hcLibraryData.find(h => h.id === hcId);
+                        return <li key={hcId}>{hc?.name || hcId}: {rating}/5</li>
+                    })}
+                    {Object.keys(generatedProfile.hcFamiliarity).length === 0 && <li>No familiarity ratings provided.</li>}
+                    </ul>
+                  </div>
+
                   {generatedProfile.potentialBiasesIdentified && generatedProfile.potentialBiasesIdentified.length > 0 && (
-                    <div><strong>Potential Biases to Explore:</strong> {generatedProfile.potentialBiasesIdentified.join(', ')}</div>
+                    <div className="mt-2">
+                        <h4 className="font-medium text-sm">Potential Biases/Patterns to Explore:</h4>
+                        <ul className="list-disc list-inside pl-4 text-sm">
+                        {generatedProfile.potentialBiasesIdentified.map((bias, idx) => <li key={idx}>{bias}</li>)}
+                        </ul>
+                    </div>
                   )}
-                  {/* Could add a summary of HC familiarity here */}
-                  <p className="mt-4 text-sm text-accent-foreground bg-accent p-3 rounded-md">
+                   {(!generatedProfile.potentialBiasesIdentified || generatedProfile.potentialBiasesIdentified.length === 0) && (
+                     <p className="text-sm italic text-muted-foreground">No specific bias patterns strongly indicated by initial responses. General awareness is always beneficial!</p>
+                   )}
+                  <p className="mt-4 text-sm text-accent-foreground bg-accent/90 p-3 rounded-md shadow">
                     Your profile is set! You're ready to start your journey towards sharper thinking.
                   </p>
                 </div>
               ) : (
-                <p>Generating your profile summary...</p>
-                // This step should ideally only be reachable after `processOnboardingData` has run in `handleNext` of the previous step.
-                // For now, we'll call `processOnboardingData` if `generatedProfile` is null when this step loads.
+                <p className="text-center text-muted-foreground py-10">Generating your profile summary... Please wait.</p>
               )}
             </div>
           )}
@@ -251,27 +275,21 @@ export default function OnboardingPage() {
             <ChevronLeft className="mr-2 h-4 w-4" /> Previous
           </Button>
           
-          {currentStep === TOTAL_STEPS && generatedProfile ? (
-             <Button onClick={() => router.push('/profile')} className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-md">
-              Go to My Profile <CheckCircle className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button 
-              onClick={handleNext} 
-              className={`shadow-md ${currentStep === TOTAL_STEPS ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
-              // Disable next on Goal Select if no goal is chosen
-              disabled={(currentStep === 4 && !userGoal) || (currentStep === 2 && sjtAnswers.length < sjtScenariosData.length) }
-            >
-              {currentStep === TOTAL_STEPS ? 'Finish & View Profile' : (currentStep === TOTAL_STEPS -1 ? 'Process & View Summary' : 'Next')}
-              {currentStep === TOTAL_STEPS ? <CheckCircle className="ml-2 h-4 w-4" /> : <ChevronRight className="ml-2 h-4 w-4" />}
-            </Button>
-          )}
+          <Button 
+            onClick={handleNext} 
+            className={`shadow-md ${currentStep === TOTAL_STEPS ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
+            disabled={
+              (currentStep === 2 && sjtAnswers.length < sjtScenariosData.length) || // Must answer all SJTs
+              (currentStep === 4 && !userGoal) || // Must select a goal on step 4 before "Process"
+              (currentStep === TOTAL_STEPS && !generatedProfile) // On last step, "Finish" is disabled until profile is generated
+            }
+          >
+            {currentStep === TOTAL_STEPS ? 'Finish & Go to Profile' : (currentStep === TOTAL_STEPS -1 ? 'Process & View Summary' : 'Next')}
+            {currentStep === TOTAL_STEPS ? <CheckCircle className="ml-2 h-4 w-4" /> : <ChevronRight className="ml-2 h-4 w-4" />}
+          </Button>
         </CardFooter>
       </Card>
       <p className="text-xs text-muted-foreground mt-4">Your data is stored locally in your browser.</p>
     </div>
   );
 }
-
-// Re-export APP_NAME if it's not available elsewhere (e.g. from constants)
-const APP_NAME = 'Mindframe'; // Placeholder, should be from constants

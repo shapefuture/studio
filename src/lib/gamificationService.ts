@@ -1,10 +1,9 @@
-
 import { mindframeStore } from './MindframeStore';
 import type { GamificationData, Quest } from '@/types';
 import { starterQuestsData } from '@/assets/data/starterQuestsData';
 
 
-const WXP_THRESHOLDS: { [level: number]: number } = {
+export const WXP_THRESHOLDS: { [level: number]: number } = {
   1: 0,
   2: 100,
   3: 250,
