@@ -1,0 +1,27 @@
+
+name = "mindframe-llm-proxy"
+main = "src/index.ts"
+compatibility_date = "2023-12-01" # Adjust as needed based on features used
+
+# Add secrets for API keys in your Cloudflare dashboard:
+# wrangler secret put OPENROUTER_API_KEY
+# For local development, you can create a .dev.vars file in this directory:
+# OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Example: Enabling a KV namespace binding (if you decide to use KV for caching in worker)
+# [[kv_namespaces]]
+# binding = "INSIGHT_CACHE"
+# id = "your_kv_namespace_id_here"
+
+# Example: Setting up a D1 database binding (if needed)
+# [[d1_databases]]
+# binding = "DB" # i.e. env.DB
+# database_name = "my-database"
+# database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+[vars]
+# You can define non-secret variables here if needed
+# EXAMPLE_VAR = "example_value"
+
+# For local development with `wrangler dev`, it will automatically pick up `.dev.vars`
+# For deployment, secrets must be set via `wrangler secret put`
