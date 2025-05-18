@@ -13,7 +13,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "src/popup_src/index.html",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "src/assets/icons/icon16.png",
       "48": "src/assets/icons/icon48.png",
@@ -22,13 +22,12 @@
   },
   "background": {
     "service_worker": "src/service_worker/service_worker.js"
-    // Assuming service_worker.ts is compiled to service_worker.js in this location by a separate tsc step or configured in Vite
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["dist/content_scripts/content_script.js"], // Points to Vite's output for content_script
-      "css": ["src/assets/styles.css"] // If you have global styles for content script
+      "js": ["dist/content_scripts/content_script.js"],
+      "css": ["src/assets/styles.css"]
     }
   ],
   "icons": {
@@ -38,7 +37,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/popup_src/assets/*", "src/assets/icons/*"],
+      "resources": ["src/popup_src/assets/*", "src/assets/icons/*", "popup.html"],
       "matches": ["<all_urls>"]
     }
   ]
