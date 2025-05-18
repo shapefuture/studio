@@ -1,6 +1,6 @@
 
 import type { HCData } from '../../core_logic/types';
-import { Aperture, CheckSquare, AlertTriangle, ScanSearch, Users } from 'lucide-react';
+import { Aperture, CheckSquare, AlertTriangle, ScanSearch, Users, Brain, MessageSquare, Lightbulb } from 'lucide-react';
 
 export const hcLibraryData: HCData[] = [
   {
@@ -15,7 +15,7 @@ export const hcLibraryData: HCData[] = [
     shortTip: 'Always ask "Why?" and "What if?" to dig deeper into any claim or situation.'
   },
   {
-    id: 'evidencebased',
+    id: 'evidence-based',
     tag: '#evidencebased',
     name: 'Evidence-Based Reasoning',
     icon: CheckSquare,
@@ -57,5 +57,28 @@ export const hcLibraryData: HCData[] = [
     keySkills: ['Empathetic understanding', 'Ideological flexibility', 'Cultural awareness', 'Recognition of lived experiences', 'Considering stakeholder views'],
     examples: ['Trying to understand why a friend is upset, even if you don\'t agree with their reason.', 'Considering how a policy might affect different groups of people.', 'Reading opinions from people with different backgrounds on a social issue.'],
     shortTip: 'Before judging, try to walk a mile in someone else\'s shoes (figuratively!).'
+  },
+  // Adding more as per blueprint structure, actual content can be varied
+  {
+    id: 'cognitive-load',
+    tag: '#cognitiveload',
+    name: 'Cognitive Load Management',
+    icon: Brain,
+    description: 'Optimize how information is processed to avoid mental overload.',
+    longDescription: 'Cognitive load refers to the total amount of mental effort being used in the working memory. Managing it effectively means breaking down complex information, minimizing distractions, and using strategies to process information more efficiently for better learning and decision-making.',
+    keySkills: ['Chunking information', 'Minimizing distractions', 'Using visual aids', 'Prioritizing tasks', 'Offloading information'],
+    examples: ['Breaking a large project into smaller, manageable tasks.', 'Turning off notifications while studying.', 'Using mind maps to organize complex ideas.'],
+    shortTip: 'Break complex tasks into smaller pieces to avoid feeling overwhelmed.'
+  },
+  {
+    id: 'metacognition',
+    tag: '#metacognition',
+    name: 'Metacognition',
+    icon: MessageSquare,
+    description: 'Thinking about your own thinking processes.',
+    longDescription: 'Metacognition, often described as "thinking about thinking," is the awareness and understanding of one\'s own thought processes. It involves monitoring your comprehension, evaluating your strategies, and adjusting your approach to learning or problem-solving to improve outcomes.',
+    keySkills: ['Self-monitoring', 'Strategy evaluation', 'Planning learning', 'Reflecting on understanding', 'Self-correction'],
+    examples: ['Asking yourself "Do I really understand this?" while reading.', 'Choosing specific study strategies based on the material.', 'Reviewing your approach after solving a difficult problem.'],
+    shortTip: 'Regularly ask yourself: "How am I learning and how can I improve?"'
   },
 ];

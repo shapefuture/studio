@@ -10,9 +10,10 @@ import type { LLMInsight, OfflineInsight, MindframeStoreState, UiInsight, Cognit
 import { commonOfflineInsightsData } from '@assets/data/common_offline_insights_data';
 
 // --- Configuration ---
-const LLM_PROXY_URL = 'YOUR_CLOUDFLARE_WORKER_URL_HERE/api/analyze'; // Replace with actual worker URL
+// IMPORTANT: Replace with your actual deployed Cloudflare Worker URL
+const LLM_PROXY_URL = 'YOUR_CLOUDFLARE_WORKER_URL_HERE/api/analyze'; 
 const INSIGHT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const WXP_FOR_CHALLENGE_ACCEPTED = 15;
+const WXP_FOR_CHALLENGE_ACCEPTED = 15; // WXP points for accepting a co-pilot challenge
 
 
 // --- Utility Functions ---
@@ -34,6 +35,7 @@ function hashString(str: string): string {
 
 /**
  * Parses the XML-like response from the LLM proxy.
+ * Uses DOMParser for more robust parsing.
  * @param xmlString - The XML string from the proxy.
  * @returns An LLMInsight object or null if parsing fails.
  */
@@ -44,7 +46,7 @@ function parseXMLResponse(xmlString: string): LLMInsight | null {
     
     const parserErrorNode = xmlDoc.querySelector("parsererror");
     if (parserErrorNode) {
-      console.error("XML Parsing Error:", parserErrorNode.textContent);
+      console.error("Mindframe SW: XML Parsing Error:", parserErrorNode.textContent);
       return null;
     }
 
@@ -58,7 +60,7 @@ function parseXMLResponse(xmlString: string): LLMInsight | null {
     const micro_challenge_prompt = getString("micro_challenge_prompt");
 
     if (!pattern_type || !explanation || !micro_challenge_prompt) {
-      console.error("Mindframe SW: Malformed XML response from LLM, missing required tags.", xmlString);
+      console.error("Mindframe SW: Malformed XML response from LLM, missing required tags (pattern_type, explanation, or micro_challenge_prompt). XML:", xmlString);
       return null;
     }
 
@@ -76,18 +78,21 @@ function parseXMLResponse(xmlString: string): LLMInsight | null {
   }
 }
 
+
 /**
- * Gets a random offline insight.
+ * Gets a random offline insight and formats it as a UiInsight.
  * @returns A UiInsight object formatted from OfflineInsight.
  */
 function getRandomOfflineInsight(): UiInsight {
   const offlineData = commonOfflineInsightsData[Math.floor(Math.random() * commonOfflineInsightsData.length)];
   return {
     id: offlineData.id || `offline-${Date.now()}`,
-    title: offlineData.type.charAt(0).toUpperCase() + offlineData.type.slice(1),
+    title: offlineData.pattern_type.includes('tip') ? 'Quick Tip' 
+           : (offlineData.pattern_type.includes('question') || offlineData.pattern_type.includes('reflection') ? 'Reflection Prompt'
+           : (offlineData.pattern_type.includes('fact') ? 'Did You Know?' : 'Mindframe Insight')),
     sourceType: 'offline',
     hc_related: offlineData.hcId || null,
-    pattern_type: offlineData.pattern_type,
+    pattern_type: offlineData.pattern_type, // This is more like a category for offline insights
     explanation: offlineData.explanation,
     micro_challenge_prompt: offlineData.micro_challenge_prompt,
     timestamp: Date.now(),
@@ -111,6 +116,7 @@ function sendInsightToContentScript(tabId: number, insight: UiInsight) {
 
 /**
  * Handles the 'analyzeVisibleTextForCoPilot' action.
+ * Fetches profile, checks cache, calls LLM proxy, or serves offline insight.
  */
 async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string }, senderTabId: number) {
   const { visibleText, pageUrl } = payload;
@@ -128,7 +134,7 @@ async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string
 
   if (!userProfile || !userProfile.onboardingCompletedTimestamp) {
     console.log("Mindframe SW: User has not completed onboarding. Skipping analysis.");
-    // Optionally, send a message to prompt onboarding
+    // Optionally, send a message to prompt onboarding or show a specific "onboarding needed" card
     return { status: "onboarding_incomplete" };
   }
   
@@ -137,13 +143,19 @@ async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string
       return { status: "analysis_disabled" };
   }
 
-
   const cacheKey = hashString(visibleText + (userProfile.primaryGoal || '') + pageUrl);
   const cachedEntry = storeState.llmAnalysisCache?.[cacheKey];
 
   if (cachedEntry && (Date.now() - cachedEntry.timestamp < INSIGHT_CACHE_TTL_MS)) {
     console.log("Mindframe SW: Returning cached insight for key:", cacheKey);
-    sendInsightToContentScript(senderTabId, { ...cachedEntry.insight, sourceType: 'llm', title: `Pattern: ${cachedEntry.insight.pattern_type}`, id: cacheKey });
+    const uiInsight: UiInsight = { 
+        ...cachedEntry.insight, 
+        sourceType: 'llm', 
+        title: `Pattern: ${cachedEntry.insight.pattern_type === 'none' ? 'General Reflection' : cachedEntry.insight.pattern_type}`, 
+        id: cacheKey,
+        timestamp: cachedEntry.timestamp
+    };
+    sendInsightToContentScript(senderTabId, uiInsight);
     return { status: "success_cached", insight: cachedEntry.insight };
   }
 
@@ -159,13 +171,14 @@ async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        textSegment: visibleText,
+        textSegment: visibleText.substring(0,2000), // Ensure textSegment is within limits for proxy
         userGoal: userProfile.primaryGoal,
       }),
     });
 
     if (!proxyResponse.ok) {
-      throw new Error(`LLM Proxy Error: ${proxyResponse.status} ${proxyResponse.statusText}`);
+      const errorText = await proxyResponse.text();
+      throw new Error(`LLM Proxy Error: ${proxyResponse.status} ${proxyResponse.statusText}. Details: ${errorText}`);
     }
 
     const xmlText = await proxyResponse.text();
@@ -173,7 +186,7 @@ async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string
 
     if (llmInsight) {
       if (llmInsight.pattern_type !== 'none' || llmInsight.hc_related !== null) { // Cache meaningful insights
-        await MindframeStore.update(current => ({
+        await MindframeStore.update((current: MindframeStoreState) => ({ // Corrected updater function
           ...current,
           llmAnalysisCache: {
             ...current.llmAnalysisCache,
@@ -181,13 +194,20 @@ async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string
           },
         }));
       }
-      sendInsightToContentScript(senderTabId, { ...llmInsight, sourceType: 'llm', title: `Pattern: ${llmInsight.pattern_type}`, id: cacheKey });
+      const uiInsight: UiInsight = { 
+          ...llmInsight, 
+          sourceType: 'llm', 
+          title: `Pattern: ${llmInsight.pattern_type === 'none' ? 'General Reflection' : llmInsight.pattern_type}`, 
+          id: cacheKey,
+          timestamp: Date.now()
+      };
+      sendInsightToContentScript(senderTabId, uiInsight);
       if (llmInsight.highlight_suggestion_css_selector) {
-        chrome.tabs.sendMessage(senderTabId, {action: 'applyHighlightOnPage', selector: llmInsight.highlight_suggestion_css_selector});
+        chrome.tabs.sendMessage(senderTabId, {action: 'applyHighlightOnPage', selector: llmInsight.highlight_suggestion_css_selector})
+            .catch(e => console.warn("Mindframe SW: Failed to send highlight message", e.message));
       }
       return { status: "success_live", insight: llmInsight };
     } else {
-      // If parsing failed but call was successful, still could be an issue. Send offline.
       console.warn("Mindframe SW: LLM response parsing failed. Sending offline insight.");
       sendInsightToContentScript(senderTabId, getRandomOfflineInsight());
       return { status: "parse_error_fallback" };
@@ -201,17 +221,18 @@ async function handleAnalyzeText(payload: { visibleText: string; pageUrl: string
 
 /**
  * Handles the 'coPilotChallengeAccepted' action.
+ * Awards WXP and logs the completed challenge.
  */
 async function handleChallengeAccepted(payload: { challengePrompt: string; hcRelated: string | null }) {
   try {
     await GamificationService.addWXP(WXP_FOR_CHALLENGE_ACCEPTED);
     await MindframeStore.update((current: MindframeStoreState) => ({
-      ...current,
+      ...current, // Spread current state first
       completedChallengeLog: [
         {
           timestamp: Date.now(),
           challengeText: payload.challengePrompt,
-          hcRelated: payload.hcRelated || "General",
+          hcRelated: payload.hcRelated || "General", // Ensure hcRelated is string or null
           wxpEarned: WXP_FOR_CHALLENGE_ACCEPTED,
         },
         ...(current.completedChallengeLog || []).slice(0, 19), // Keep last 20
@@ -230,21 +251,22 @@ async function handleChallengeAccepted(payload: { challengePrompt: string; hcRel
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('Mindframe OS Service Worker Installed/Updated.', details.reason);
-  // Initialize default store state if it's the first install
   if (details.reason === 'install') {
     MindframeStore.get().then(initialState => {
-      console.log("Initial store state on install:", initialState);
-      // Ensure default quests are set if not already present through onboarding
-      // (onboardingLogic will handle initial quest assignment upon completion)
+      console.log("Mindframe SW: Initial store state on install:", initialState);
+      // Onboarding logic should handle initial quest assignment upon its completion.
+      // Optionally, open onboarding page:
+      // chrome.tabs.create({ url: chrome.runtime.getURL('popup.html#/onboarding') });
     });
   }
-  // Clean up old cache entries (optional)
+  // Clean up old cache entries
   MindframeStore.get().then(state => {
       const newCache : MindframeStoreState['llmAnalysisCache'] = {};
       let updated = false;
+      const now = Date.now();
       if(state.llmAnalysisCache){
         Object.entries(state.llmAnalysisCache).forEach(([key, value]) => {
-            if(Date.now() - value.timestamp < INSIGHT_CACHE_TTL_MS * 7) { // Keep for 7 days for example
+            if(now - value.timestamp < INSIGHT_CACHE_TTL_MS * 7) { // Keep for 7 days for example
                 newCache[key] = value;
             } else {
                 updated = true;
@@ -252,7 +274,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         });
       }
       if(updated){
-        MindframeStore.update(current => ({...current, llmAnalysisCache: newCache}));
+        MindframeStore.update((current: MindframeStoreState) => ({...current, llmAnalysisCache: newCache}));
         console.log("Mindframe SW: Cleaned up stale LLM analysis cache entries.");
       }
   });
@@ -261,33 +283,47 @@ chrome.runtime.onInstalled.addListener((details) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("Mindframe SW: Received message:", message.action, "from:", sender.tab?.id ? `Tab ${sender.tab.id}`: "Popup/Other");
 
-  if (message.action === 'analyzeVisibleTextForCoPilot') {
+  if (message.action === 'analyzeVisibleTextForCoPilot' && message.payload) {
     if (sender.tab && sender.tab.id) {
       handleAnalyzeText(message.payload, sender.tab.id)
         .then(sendResponse)
-        .catch(err => sendResponse({ status: "error", error: err.message }));
+        .catch(err => {
+            console.error("Mindframe SW: Error in handleAnalyzeText promise chain:", err);
+            sendResponse({ status: "error", error: err.message })
+        });
     } else {
+      console.error("Mindframe SW: 'analyzeVisibleTextForCoPilot' message must be sent from a tab with an ID.");
       sendResponse({ status: "error", error: "Message must be sent from a tab."});
     }
     return true; // Indicates asynchronous response.
   }
 
-  if (message.action === 'coPilotChallengeAccepted') {
+  if (message.action === 'coPilotChallengeAccepted' && message.payload) {
     handleChallengeAccepted(message.payload)
       .then(sendResponse)
-      .catch(err => sendResponse({ status: "error", error: err.message }));
+      .catch(err => {
+          console.error("Mindframe SW: Error in handleChallengeAccepted promise chain:", err);
+          sendResponse({ status: "error", error: err.message })
+      });
     return true; // Indicates asynchronous response.
   }
   
-  if (message.action === 'getUserProfile') { // Example: content script requests profile
+  if (message.action === 'getUserProfile') { 
     MindframeStore.get().then(state => sendResponse({profile: state.userProfile}))
       .catch(err => sendResponse({ status: "error", error: err.message }));
     return true;
   }
 
+  // For opening popup pages from content scripts (e.g., "Learn More" on InsightCard)
+  if (message.action === 'openMindframePage' && message.path) {
+    chrome.tabs.create({ url: chrome.runtime.getURL(`popup.html#${message.path}`) });
+    sendResponse({status: "Page open attempt sent"});
+    return true;
+  }
+
   // Default response for unhandled actions
-  // sendResponse({ status: "unknown_action" }); 
-  // return false; // Synchronous if not returning true elsewhere
+  // sendResponse({ status: "unknown_action" }); // No default response to avoid errors if not expected
+  return false; // Indicate synchronous handling if no other path returns true
 });
 
 console.log("Mindframe OS Service Worker active.");

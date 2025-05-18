@@ -9,9 +9,9 @@ export interface HCData {
   id: string; // e.g. "critique"
   tag: string; // e.g., #critique
   name: string; // e.g. "Critical Thinking"
-  icon: string | LucideIcon; // Material icon name, emoji, or LucideIcon component
+  icon: LucideIcon | string; // LucideIcon component or emoji string
   description: string; // Concise description
-  longDescription?: string; // Detailed explanation
+  longDescription: string; // Detailed explanation
   keySkills: string[]; // List of key skills involved
   examples: string[]; // Practical examples of the skill
   shortTip: string; // A quick, actionable tip
@@ -37,7 +37,7 @@ export interface HCDrillQuestion {
   correctAnswerId: string; // ID of the correct HCDrillOption
   explanationOnCorrect: string;
   explanationOnIncorrect: string;
-  rewardWXP?: number; // WXP points awarded for completion
+  rewardWXP: number; // WXP points awarded for completion
 }
 
 // --- Situational Judgement Test (SJT) Types ---
@@ -73,7 +73,7 @@ export interface SJTScenario {
  */
 export interface UserOnboardingData {
   userId: string;
-  sjtAnswersById: { [scenarioId: string]: string }; // scenarioId -> selectedOptionId (option text for simplicity, or option index)
+  sjtAnswersById: { [scenarioId: string]: string }; // scenarioId -> selectedOptionId (option index as string)
   hcProficiency: { [hcId: string]: number }; // hcId -> 0-5 rating
   primaryGoal: string; // User's primary goal
   userInterests: string[]; // Array of interest IDs
@@ -114,7 +114,7 @@ export interface Quest {
   id: string;
   title: string;
   description: string;
-  icon?: string; // Emoji or icon name
+  icon: string; // Emoji or icon name
   steps: QuestStep[];
   rewardWXP: number;
   tags: string[]; // e.g., ["beginner", "critique"]
@@ -158,12 +158,12 @@ export interface LLMInsight {
  */
 export interface OfflineInsight {
   id: string;
-  text: string;
-  type: 'tip' | 'motivation' | 'question' | 'fact';
-  hcId?: string | null; // Optional: link to a relevant HC
+  // text: string; // Original field, now covered by explanation for consistency
+  // type: 'tip' | 'motivation' | 'question' | 'fact'; // Original field, now inferred or part of title
+  hcId: string | null; // Optional: link to a relevant HC
   // Fields to match LLMInsight for easier use in InsightCard
   pattern_type: string; // Often 'general_tip' or 'reflection_prompt'
-  explanation: string; // Typically the 'text' field
+  explanation: string; // Typically the original 'text' field
   micro_challenge_prompt: string; // A generic prompt or derived from 'text' if it's a question
 }
 

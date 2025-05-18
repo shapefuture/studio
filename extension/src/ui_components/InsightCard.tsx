@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import type { UiInsight, LLMInsight, OfflineInsight, HCData } from '@core_logic/types';
-import { hcLibraryData } from '@assets/data/hc_library_data';
+import type { UiInsight, HCData, LLMInsight } from '@core_logic/types';
+import { hcLibraryData } from '@assets/data/hc_library_data'; // For HC icons/names
 import { AlertTriangle, Lightbulb, Zap, X, CheckCircle, HelpCircle, Eye, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils'; // Assuming utils is setup for Vite (e.g. in src/lib)
+
+// Define WXP_FOR_CHALLENGE_ACCEPTED here if not imported, matching service_worker
+const WXP_FOR_CHALLENGE_ACCEPTED = 15;
 
 interface InsightCardProps {
   insight: UiInsight;
@@ -17,27 +20,34 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, onAccept, onDismiss 
   const [showMicroChallenge, setShowMicroChallenge] = useState(false);
 
   const relatedHC: HCData | undefined = insight.hc_related ? hcLibraryData.find(hc => hc.id === insight.hc_related) : undefined;
-  const HCLabel = relatedHC?.name || insight.hc_related || (insight.sourceType === 'llm' ? "Cognitive Pattern" : "Mindframe Tip");
   
-  // Determine icon: LucideIcon or string (emoji)
-  let HCIconComponent: React.ReactNode = <HelpCircle size={22} strokeWidth={2} />;
+  // Determine Title and Icon
+  let cardTitle = insight.title;
+  if (!cardTitle) { // Fallback title logic if not provided by UiInsight directly
+    if (insight.sourceType === 'llm') {
+      cardTitle = insight.pattern_type === 'none' ? "General Reflection" : `Pattern: ${insight.pattern_type}`;
+    } else {
+      cardTitle = relatedHC?.name || "Mindframe Tip";
+    }
+  }
+
+  let HCIconComponent: React.ReactNode = <Lightbulb size={22} strokeWidth={2} />; // Default for offline/tip
   if (relatedHC?.icon) {
-    if (typeof relatedHC.icon === 'string') {
+    if (typeof relatedHC.icon === 'string') { // Emoji
       HCIconComponent = <span className="text-xl">{relatedHC.icon}</span>;
-    } else { // Assuming LucideIcon component
-      const Icon = relatedHC.icon;
-      HCIconComponent = <Icon size={22} strokeWidth={2} />;
+    } else { // LucideIcon component
+      const IconComponent = relatedHC.icon;
+      HCIconComponent = <IconComponent size={22} strokeWidth={2} />;
     }
   } else if (insight.sourceType === 'llm') {
-    HCIconComponent = <AlertTriangle size={22} strokeWidth={2} />;
-  } else {
-    HCIconComponent = <Lightbulb size={22} strokeWidth={2} />;
+    HCIconComponent = <AlertTriangle size={22} strokeWidth={2} />; // Default for LLM if no specific HC icon
   }
 
 
   useEffect(() => {
     const visibleTimer = setTimeout(() => setIsVisible(true), 50);
-    const challengeTimer = setTimeout(() => setShowMicroChallenge(true), 1200);
+    // Reveal challenge prompt a bit later to allow reading the explanation
+    const challengeTimer = setTimeout(() => setShowMicroChallenge(true), 2500); 
     return () => {
       clearTimeout(visibleTimer);
       clearTimeout(challengeTimer);
@@ -54,31 +64,30 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, onAccept, onDismiss 
     setIsChallengeAccepted(true);
     onAccept(insight.micro_challenge_prompt, insight.hc_related || null);
 
-    // In a Chrome extension, if InsightCard is rendered by content_script.tsx,
-    // this message would be sent from content_script to service_worker.
-    // If this component itself needs to communicate (e.g. highlight), it would be via props or context.
+    // Message content script to highlight if selector exists
     if (insight.sourceType === 'llm' && (insight as LLMInsight).highlight_suggestion_css_selector) {
       chrome.runtime.sendMessage({
-          action: 'applyHighlightOnPage', // Message for content script to handle
+          action: 'applyHighlightOnPage',
           selector: (insight as LLMInsight).highlight_suggestion_css_selector
-      });
+      }).catch(e => console.warn("InsightCard: Failed to send highlight message", e.message));
     }
   };
 
   if (!insight) return null;
 
-  const cardTheme = insight.sourceType === 'llm' ? 'amber' : 'sky';
+  // Determine theme based on source or pattern
+  const cardTheme = insight.sourceType === 'llm' 
+    ? (insight.pattern_type === 'none' ? 'sky' : 'amber') // LLM general reflection vs specific pattern
+    : 'sky'; // Offline insights use 'sky'
 
   return (
     <div
       className={cn(
         "w-full max-w-sm rounded-2xl shadow-apple-lg overflow-hidden transform transition-all duration-500 ease-out",
-        "bg-card text-card-foreground border border-border/50", // Using theme variables
-        "dark:bg-gray-800 dark:border-gray-700", // Explicit dark for extension context if theme not fully propagated
+        "bg-card text-card-foreground border border-border/50", 
+        "dark:bg-gray-800 dark:border-gray-700", 
         isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-10 scale-95'
       )}
-      // Apply glassmorphic via global styles if needed
-      // className="glassmorphic ..." (ensure globals.css is injected or Tailwind plugin provides this)
     >
       {/* Header */}
       <div className={cn(
@@ -94,7 +103,7 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, onAccept, onDismiss 
             {HCIconComponent}
           </div>
           <div>
-            <h2 className="text-md font-semibold tracking-tight">{HCLabel}</h2>
+            <h2 className="text-md font-semibold tracking-tight">{cardTitle}</h2>
             <p className="text-xs text-muted-foreground">
               {insight.sourceType === 'llm' ? 'AI Insight' : 'Mindframe Tip'}
             </p>
@@ -117,7 +126,7 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, onAccept, onDismiss 
           </p>
           {insight.sourceType === 'llm' && (insight as LLMInsight).original_text_segment && (
             <div className="mt-2 p-2.5 bg-secondary/50 dark:bg-gray-700/40 rounded-lg border border-border/50 text-xs text-muted-foreground italic leading-normal">
-              Related: "{(insight as LLMInsight).original_text_segment!.substring(0, 100)}..."
+              Related to: "{(insight as LLMInsight).original_text_segment!.substring(0, 100)}..."
             </div>
           )}
         </div>
@@ -150,42 +159,49 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, onAccept, onDismiss 
                   isChallengeAccepted
                     ? "bg-positive text-positive-foreground cursor-not-allowed ring-green-500"
                     : cn(
-                        "ring-primary",
+                        "ring-primary", // For focus ring
                         cardTheme === 'amber' ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-sky-500 hover:bg-sky-600 text-white",
                         "dark:hover:opacity-90"
                       )
                 )}
               >
                 <CheckCircle className="w-3.5 h-3.5 mr-1.5 inline-block" />
-                {isChallengeAccepted ? 'Challenge Accepted!' : `Accept (+${WXP_FOR_CHALLENGE_ACCEPTED} WXP)`}
+                {isChallengeAccepted ? 'Challenge Logged!' : `Accept (+${WXP_FOR_CHALLENGE_ACCEPTED} WXP)`}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {insight.hc_related && (
+      {relatedHC && (
         <div className={cn(
             "px-4 py-2.5 border-t text-right",
-            cardTheme === 'amber' ? "border-amber-500/30 bg-amber-500/5" : "border-sky-500/30 bg-sky-500/5",
+            cardTheme === 'amber' ? "border-amber-500/30 bg-amber-500/5 dark:bg-amber-900/5" : "border-sky-500/30 bg-sky-500/5 dark:bg-sky-900/5",
             "dark:bg-opacity-10 dark:border-opacity-30"
         )}>
-          <Link
-            to={`/hc-detail/${insight.hc_related}`} // This needs to be a chrome.runtime.sendMessage if card is not in popup context
+          <a // Using <a> for potential cross-origin if this card is ever rendered outside extension context.
+            // For extension popup, Link from react-router-dom would be used.
+            // For content script, this needs to message the service worker.
+            href={`popup.html#/hc-detail/${relatedHC.id}`} // Simplified for direct popup linking if possible
+            target="_blank" // Open in new tab if it's a direct link
+            rel="noopener noreferrer"
             onClick={(e) => {
-              // If not in popup, prevent default and send message
-              if (!window.location.hash.includes('/popup_src/')) { // crude check
-                e.preventDefault();
-                chrome.runtime.sendMessage({ action: 'openMindframePage', path: `/hc-detail/${insight.hc_related}` });
+              // Check if we are in a context where chrome.runtime is available (i.e., content script)
+              if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+                e.preventDefault(); // Prevent default link navigation
+                chrome.runtime.sendMessage({ action: 'openMindframePage', path: `/hc-detail/${relatedHC.id}` })
+                  .catch(err => console.warn("InsightCard: Error sending openMindframePage message:", err.message));
               }
+              // If not in content script (e.g. in popup), let default behavior proceed or handle with React Router Link.
+              // This component is designed for content_script primarily, so messaging is the main path.
             }}
             className={cn(
                 "text-xs font-medium group inline-flex items-center",
                 cardTheme === 'amber' ? "text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300" : "text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
             )}
           >
-            Learn more about {HCLabel} <ArrowRight className="w-3 h-3 ml-1 transition-transform group-hover:translate-x-0.5"/>
-          </Link>
+            Learn more about {relatedHC.name} <ArrowRight className="w-3 h-3 ml-1 transition-transform group-hover:translate-x-0.5"/>
+          </a>
         </div>
       )}
     </div>
