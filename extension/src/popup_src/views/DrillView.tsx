@@ -7,6 +7,7 @@ import type { HCDrillQuestion, HCDrillOption, HCData } from '@core_logic/types';
 import { MindframeStore } from '@core_logic/MindframeStore.js';
 import { GamificationService } from '@core_logic/gamificationService.js';
 import { ChevronLeft, CheckCircle, XCircle, ArrowRight, Lightbulb } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const DrillView: React.FC = () => {
   const { hcId, drillId } = useParams<{ hcId: string; drillId: string }>();
@@ -21,52 +22,85 @@ const DrillView: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState<string>("");
 
   useEffect(() => {
+    console.log(`DrillView: Mounting for hcId=${hcId}, drillId=${drillId}`);
     const currentHc = hcLibraryData.find(h => h.id === hcId);
-    setHcInfo(currentHc || null);
+    if (currentHc) {
+      setHcInfo(currentHc);
+    } else {
+      console.warn(`DrillView: HC info not found for hcId=${hcId}. Navigating back to gym.`);
+      navigate('/gym');
+      return;
+    }
 
     const currentDrill = hcDrillsData.find(d => d.id === drillId && d.hcId === hcId);
     if (currentDrill) {
       setDrill(currentDrill);
       MindframeStore.get().then(state => {
         if (state.completedDrillIds.includes(currentDrill.id)) {
+          console.log(`DrillView: Drill ${currentDrill.id} already completed.`);
           setIsAlreadyCompleted(true);
-          setIsSubmitted(true); // Show feedback if already done
+          setIsSubmitted(true); 
           setIsCorrect(true); // Assume previously completed correctly for display
+          setSelectedOptionId(currentDrill.correctAnswerId); // Show the correct answer selected
           setFeedbackMessage(currentDrill.explanationOnCorrect + " (You've previously completed this drill.)");
+        } else {
+          console.log(`DrillView: Drill ${currentDrill.id} not yet completed.`);
+          setIsAlreadyCompleted(false);
+          setIsSubmitted(false);
+          setIsCorrect(null);
+          setSelectedOptionId(null);
+          setFeedbackMessage("");
         }
+      }).catch(error => {
+        console.error("DrillView: Error fetching MindframeStore state:", error);
       });
     } else {
-      console.warn(`Drill not found: hcId=${hcId}, drillId=${drillId}`);
+      console.warn(`DrillView: Drill not found for hcId=${hcId}, drillId=${drillId}. Navigating back to HC detail.`);
       navigate(`/hc-detail/${hcId}`); 
     }
+    // Reset state for new drill
+    setSelectedOptionId(null);
+    setIsSubmitted(false);
+    setIsCorrect(null);
+    setFeedbackMessage("");
+    setIsAlreadyCompleted(false);
+
   }, [hcId, drillId, navigate]);
 
   const handleSubmit = async () => {
-    if (!drill || selectedOptionId === null || isAlreadyCompleted) return;
+    if (!drill || selectedOptionId === null) {
+      console.warn("DrillView: handleSubmit called with no drill or no selected option.");
+      return;
+    }
+    if (isAlreadyCompleted) {
+      console.log("DrillView: handleSubmit called for an already completed drill. No action taken.");
+      return;
+    }
 
+    console.log(`DrillView: Submitting answer for drill ${drill.id}. Selected: ${selectedOptionId}`);
     const correct = selectedOptionId === drill.correctAnswerId;
     setIsCorrect(correct);
     setIsSubmitted(true);
     setFeedbackMessage(correct ? drill.explanationOnCorrect : drill.explanationOnIncorrect);
 
     if (correct) {
-      const wxpEarned = drill.rewardWXP || 5; 
+      const wxpEarned = drill.rewardWXP || 5; // Default WXP if not specified
       try {
+        console.log(`DrillView: Correct answer. Awarding ${wxpEarned} WXP.`);
         await GamificationService.addWXP(wxpEarned);
         await MindframeStore.update(state => ({
-          ...state,
+          ...state, // Ensure existing state is spread
           completedDrillIds: Array.from(new Set([...state.completedDrillIds, drill.id]))
         }));
         setIsAlreadyCompleted(true); // Mark as completed for this session too
-        // Using alert for now as per blueprint, a toast system would be better integrated via props/context
-        // alert(`Correct! You earned ${wxpEarned} WXP.`);
         setFeedbackMessage(prev => prev + ` (+${wxpEarned} WXP)`);
+        console.log(`DrillView: WXP and completedDrillIds updated in store for drill ${drill.id}.`);
       } catch (error) {
-        console.error("Error updating WXP or completed drills:", error);
-        // alert("Error saving progress.");
+        console.error("DrillView: Error updating WXP or completed drills:", error);
+        setFeedbackMessage(prev => prev + ` (Error saving progress)`);
       }
     } else {
-      // alert("Not quite. Review the explanation.");
+      console.log(`DrillView: Incorrect answer for drill ${drill.id}.`);
     }
   };
   
@@ -83,12 +117,10 @@ const DrillView: React.FC = () => {
 
   const handleNextDrill = () => {
     if (nextDrill) {
-      setSelectedOptionId(null);
-      setIsSubmitted(false);
-      setIsCorrect(null);
-      setFeedbackMessage("");
+      console.log(`DrillView: Navigating to next drill: ${nextDrill.id}`);
       navigate(`/drill/${nextDrill.hcId}/${nextDrill.id}`);
     } else {
+      console.log(`DrillView: No next drill. Navigating back to HC detail for ${hcId}.`);
       navigate(`/hc-detail/${hcId}`);
     }
   };
@@ -114,15 +146,14 @@ const DrillView: React.FC = () => {
             <p className="text-sm text-foreground whitespace-pre-wrap ml-7">{drill.questionText}</p>
         </div>
 
-
         <div className="space-y-2 mb-4">
           {drill.options.map((opt: HCDrillOption) => (
             <label
               key={opt.id}
               className={cn(
-                `flex items-center space-x-2 p-3 border rounded-md cursor-pointer transition-all`,
+                `flex items-center space-x-2 p-3 border rounded-md transition-all`,
                 selectedOptionId === opt.id && 'ring-2 ring-primary bg-primary/10',
-                !(isSubmitted || isAlreadyCompleted) && 'hover:bg-secondary/50',
+                !(isSubmitted || isAlreadyCompleted) && 'hover:bg-secondary/50 cursor-pointer',
                 isSubmitted && opt.id === drill.correctAnswerId && 'border-green-500 bg-green-500/10 ring-2 ring-green-500',
                 isSubmitted && selectedOptionId === opt.id && opt.id !== drill.correctAnswerId && 'border-red-500 bg-red-500/10 ring-2 ring-red-500',
                 (isSubmitted || isAlreadyCompleted) && 'cursor-not-allowed opacity-80'
@@ -157,10 +188,10 @@ const DrillView: React.FC = () => {
         {isSubmitted && feedbackMessage && (
           <div className={cn(
             "mt-4 p-3 rounded-md text-sm border", 
-            isCorrect || (isAlreadyCompleted && isCorrect === null) ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
+            isCorrect || (isAlreadyCompleted && isCorrect !== false) ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
           )}>
-            <p className="font-medium mb-1">
-              {isCorrect || (isAlreadyCompleted && isCorrect === null && selectedOptionId === drill.correctAnswerId) ? "Correct!" : (isAlreadyCompleted && isCorrect===null && selectedOptionId !== drill.correctAnswerId ? "Previously Completed" : "Needs Review")}
+             <p className="font-medium mb-1">
+              {isCorrect ? "Correct!" : (isAlreadyCompleted ? "Previously Completed" : "Needs Review")}
             </p>
             <p className="whitespace-pre-wrap">{feedbackMessage}</p>
           </div>
