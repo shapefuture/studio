@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import type { UiInsight } from '@/types';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Lightbulb, Zap, X, CheckCircle, HelpCircle, Eye } from 'lucide-react';
+import { AlertTriangle, Lightbulb, Zap, X, CheckCircle, HelpCircle, Eye, ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { gamificationService } from '@/lib/gamificationService';
 import { cn } from '@/lib/utils';
