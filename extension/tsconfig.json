@@ -1,0 +1,41 @@
+
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true, // Vite handles emit for popup, other scripts might use tsc
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Paths */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@core_logic/*": ["src/core_logic/*"],
+      "@assets/*": ["src/assets/*"],
+      "@popup_src/*": ["src/popup_src/*"],
+      "@components/*": ["src/popup_src/components/*"],
+      "@views/*": ["src/popup_src/views/*"],
+      "@ui_components/*": ["src/ui_components/*"],
+      "@content_scripts/*": ["src/content_scripts/*"],
+      "@service_worker/*": ["src/service_worker/*"]
+    },
+    "types": ["chrome", "node"] // Add "node" for vite.config.ts and other build scripts
+  },
+  "include": ["src", "vite.config.ts", "postcss.config.js", "tailwind.config.js"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

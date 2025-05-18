@@ -1,21 +1,4 @@
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "default",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "tailwind.config.ts",
-    "css": "src/app/globals.css",
-    "baseColor": "neutral",
-    "cssVariables": true,
-    "prefix": ""
-  },
-  "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
-  },
-  "iconLibrary": "lucide"
-}
+// This file is specific to ShadCN UI with Next.js RSC.
+// For a Vite project, ShadCN components would be added differently if used.
+// The current blueprint does not specify ShadCN directly for the Vite popup,
+// focusing on Tailwind CSS for styling.

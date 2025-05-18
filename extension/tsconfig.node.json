@@ -1,0 +1,13 @@
+
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noEmit": true // Typically, tsconfig.node.json is for checking build-related TS files
+  },
+  "include": ["vite.config.ts", "postcss.config.js", "tailwind.config.js"]
+}

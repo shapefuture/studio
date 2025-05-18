@@ -1,22 +1,23 @@
-
+// This can be moved to extension/src/popup_src/components/Logo.tsx
 import type { SVGProps } from 'react';
-import { APP_NAME } from '@/lib/constants';
+// const APP_NAME = 'Mindframe OS'; // Defined in constants or passed as prop
 
-export function Logo(props: SVGProps<SVGSVGElement>) {
+export function Logo(props: SVGProps<SVGSVGElement> & { appName?: string }) {
+  const appName = props.appName || 'Mindframe OS';
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5" // Adjusted stroke width
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-8 w-8 text-primary" // Default size, can be overridden by props
-      aria-label={`${APP_NAME} Logo`}
+      className="h-8 w-8 text-primary"
+      aria-label={`${appName} Logo`}
       {...props}
     >
-      <title>{`${APP_NAME} Logo`}</title>
+      <title>{`${appName} Logo`}</title>
       {/* Brain-like shape */}
       <path d="M16.5 3.5c1.93 0 3.5 1.57 3.5 3.5s-1.57 3.5-3.5 3.5M7.5 3.5C5.57 3.5 4 5.07 4 7s1.57 3.5 3.5 3.5" />
       <path d="M12 14.5a2.5 2.5 0 0 0 0-5 2.5 2.5 0 0 0 0 5Z" />
