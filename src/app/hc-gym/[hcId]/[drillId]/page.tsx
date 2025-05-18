@@ -1,4 +1,6 @@
-
+// This file is part of the Next.js app structure and might be phased out
+// or adapted if the Chrome Extension becomes the sole focus.
+// For now, ensuring it builds by fixing imports.
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -10,15 +12,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { hcLibraryData } from '@/assets/data/hcLibraryData';
 import { hcDrillsData } from '@/assets/data/hcDrillsData';
-import type { HC, HCDrillQuestion } from '@/types';
+import type { HC, HCDrillQuestion } from '@/types'; // Ensure this path is correct
 import { CheckCircle, Lightbulb, MessageSquare, RefreshCw, ChevronLeft, XCircle, ArrowRight } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast'; // Ensure this path is correct
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { gamificationService } from '@/lib/gamificationService';
-import { mindframeStore } from '@/lib/MindframeStore';
+import { gamificationService } from '@/lib/gamificationService'; // Ensure this path is correct
+import { mindframeStore } from '@/lib/MindframeStore'; // Ensure this path is correct
 
 interface DrillPageProps {
   params: { hcId: string; drillId: string };
+  // searchParams?: { [key: string]: string | string[] | undefined }; // Next.js app router passes searchParams
 }
 
 export default function DrillPage({ params }: DrillPageProps) {
@@ -170,8 +173,8 @@ export default function DrillPage({ params }: DrillPageProps) {
           </section>
 
           {isSubmitted && feedbackMessage && (
-             <Alert variant={isCorrect ? "default" : "destructive"} className={`mt-6 shadow-md ${isCorrect ? 'border-accent bg-accent/10' : (isDrillCompletedInStore && !isCorrect ? 'border-muted' : '')}`}>
-              {isCorrect ? <CheckCircle className="h-5 w-5 text-accent" /> : (isDrillCompletedInStore && !isCorrect ? <Lightbulb className="h-5 w-5 text-muted-foreground"/> : <XCircle className="h-5 w-5 text-destructive" />)}
+             <Alert variant={isCorrect === null ? "default" : (isCorrect ? "default" : "destructive")} className={`mt-6 shadow-md ${isCorrect ? 'border-accent bg-accent/10' : (isDrillCompletedInStore && !isCorrect ? 'border-muted' : '')}`}>
+              {(isCorrect === true || isDrillCompletedInStore) ? <CheckCircle className="h-5 w-5 text-accent" /> : <XCircle className="h-5 w-5 text-destructive" />}
               <AlertTitle className={isCorrect ? "text-accent" : (isDrillCompletedInStore && !isCorrect ? "text-muted-foreground" : "text-destructive")}>
                 {isCorrect ? "Feedback: Correct!" : (isDrillCompletedInStore && !isCorrect ? "Previously Completed" : "Feedback: Needs Review")}
               </AlertTitle>
@@ -202,6 +205,13 @@ export default function DrillPage({ params }: DrillPageProps) {
                  <Link href={`/hc-gym/${nextDrill.hcId}/${nextDrill.id}`} passHref className="flex-1 sm:flex-none">
                     <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground shadow-md">
                         Next Drill <ArrowRight className="ml-2 h-4 w-4"/>
+                    </Button>
+                 </Link>
+            )}
+             {isSubmitted && !nextDrill && (
+                 <Link href={`/hc-gym/${hc.id}`} passHref className="flex-1 sm:flex-none">
+                    <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground shadow-md">
+                        Back to {hc.name} <ArrowRight className="ml-2 h-4 w-4"/>
                     </Button>
                  </Link>
             )}

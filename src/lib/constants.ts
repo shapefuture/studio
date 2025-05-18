@@ -1,22 +1,34 @@
+import type { CognitiveProfileV1, GamificationData } from '@/types';
 
-// This file's contents might be split or moved.
-// For example, DEFAULT_COGNITIVE_PROFILE and DEFAULT_GAMIFICATION_DATA
-// are more related to MindframeStore.js in the new structure.
-// INTERESTS_OPTIONS could be in assets/data or a new constants.ts in core_logic.
+export const APP_NAME = 'Mindframe OS';
 
-// For now, I'll assume its contents are used by the new files,
-// and specific constants will be defined where needed or in a new
-// extension/src/core_logic/constants.ts file.
+export const DEFAULT_COGNITIVE_PROFILE: CognitiveProfileV1 = {
+  version: 1,
+  userGoal: '',
+  interests: [],
+  sjtAnswers: [],
+  hcFamiliarity: {},
+  potentialBiasesIdentified: [],
+  onboardingCompleted: false,
+};
 
-export const APP_NAME = 'Mindframe OS'; // Updated App Name
+export const DEFAULT_GAMIFICATION_DATA: GamificationData = {
+  wxp: 0,
+  level: 1,
+  completedDrillIds: [],
+};
 
-// These will likely be defined within MindframeStore.js or types.ts for defaults.
-// export const DEFAULT_COGNITIVE_PROFILE: CognitiveProfileV1 = { ... };
-// export const DEFAULT_GAMIFICATION_DATA: GamificationData = { ... };
+export const INTERESTS_OPTIONS = [
+  { id: 'tech', label: 'Technology' },
+  { id: 'science', label: 'Science' },
+  { id: 'business', label: 'Business & Finance' },
+  { id: 'arts', label: 'Arts & Culture' },
+  { id: 'health', label: 'Health & Wellness' },
+  { id: 'politics', label: 'Politics & Current Events' },
+  { id: 'education', label: 'Education' },
+  { id: 'psychology', label: 'Psychology' },
+  { id: 'self_improvement', label: 'Self-Improvement' },
+];
 
-// Moved to OnboardingView.tsx for popup context or a shared data file
-// export const INTERESTS_OPTIONS = [ ... ];
-
-// This should be an environment variable for the Cloudflare worker, not hardcoded client-side.
-// export const LLM_PROXY_URL = process.env.NEXT_PUBLIC_LLM_PROXY_URL || 'http://127.0.0.1:8787/api/analyze';
-// Service worker will have its own constant for this.
+// Note: LLM_PROXY_URL was here but is better handled by environment variables for the extension
+// For the Next.js part, if it needs it, it should also use environment variables (e.g., NEXT_PUBLIC_LLM_PROXY_URL)
