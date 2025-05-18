@@ -7,21 +7,35 @@ import type { MindframeStoreState, Quest, CompletedChallengeLogEntry, HCData, Co
 import { starterQuestsData } from '@assets/data/starter_quests_data';
 import { hcLibraryData } from '@assets/data/hc_library_data';
 import { User, Zap, Trophy, BarChart3, Edit3, ShieldQuestion, BookOpen, Lightbulb, CheckSquare, Activity, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const ProfileView: React.FC = () => {
   const [userData, setUserData] = useState<MindframeStoreState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
+      console.log("ProfileView: Fetching user data...");
       setIsLoading(true);
+      setError(null);
       try {
         const state = await MindframeStore.get();
-        setUserData(state);
-      } catch (error) {
-        console.error("Error fetching user data for profile:", error);
+        if (!state) {
+          console.error("ProfileView: MindframeStore.get() returned null or undefined.");
+          setError("Failed to load profile data. Store is unavailable.");
+          setUserData(null);
+        } else {
+          console.log("ProfileView: User data fetched successfully:", state);
+          setUserData(state);
+        }
+      } catch (err) {
+        console.error("ProfileView: Error fetching user data for profile:", err);
+        setError("An error occurred while loading your profile.");
+        setUserData(null);
       } finally {
         setIsLoading(false);
+        console.log("ProfileView: Fetching complete.");
       }
     };
     fetchData();
@@ -52,7 +66,23 @@ const ProfileView: React.FC = () => {
     );
   }
   
+  if (error) {
+    return (
+      <div className="p-4 text-center h-full flex flex-col justify-center items-center bg-background">
+        <User className="h-12 w-12 text-destructive mb-3" />
+        <p className="text-destructive-foreground mb-1">{error}</p>
+        <p className="text-sm text-muted-foreground mb-4">Please try refreshing or ensure the extension has permissions.</p>
+        <Link to="/onboarding">
+           <button className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90">
+               Try Onboarding
+           </button>
+        </Link>
+      </div>
+    );
+  }
+  
   if (!userData || !userData.userProfile) {
+      console.warn("ProfileView: User data or user profile is null/undefined. Redirecting to onboarding.");
       return (
           <div className="p-4 text-center h-full flex flex-col justify-center items-center bg-background">
              <User className="h-12 w-12 text-destructive mb-3" />
@@ -67,17 +97,18 @@ const ProfileView: React.FC = () => {
   }
 
 
-  const { userProfile, gamificationData, activeQuestIds, completedChallengeLog } = userData;
+  const { userProfile, gamificationData, activeQuestIds = [], completedChallengeLog = [] } = userData;
 
-  const currentLevel = gamificationData.level;
-  const currentWXP = gamificationData.wxp;
+  const currentLevel = gamificationData?.level || 1;
+  const currentWXP = gamificationData?.wxp || 0;
   
   const wxpThresholdForCurrentLevel = GamificationService.WXP_THRESHOLDS[currentLevel -1] || 0;
-  const wxpThresholdForNextLevel = GamificationService.WXP_THRESHOLDS[currentLevel] || (currentWXP + (GamificationService.getWXPForNextLevel(currentWXP) || 100) ); // WXP needed TO REACH currentLevel + 1
+  // Ensure next level threshold exists, otherwise, it's max level or thresholds not fully defined
+  const wxpThresholdForNextLevel = GamificationService.WXP_THRESHOLDS[currentLevel] || (currentWXP + (GamificationService.getWXPForNextLevel(currentWXP) || 100)); 
   
   const progressPercentageWithinLevel = wxpThresholdForNextLevel > wxpThresholdForCurrentLevel ?
     Math.max(0, Math.min(100, ((currentWXP - wxpThresholdForCurrentLevel) / (wxpThresholdForNextLevel - wxpThresholdForCurrentLevel)) * 100))
-    : 100; // Max level or next threshold not defined
+    : 100;
 
   const wxpRemainingForNextLevel = Math.max(0, wxpThresholdForNextLevel - currentWXP);
 
@@ -85,7 +116,7 @@ const ProfileView: React.FC = () => {
   const getActiveQuestsDetails = (): Quest[] => {
     return activeQuestIds
       .map(id => starterQuestsData.find(q => q.id === id))
-      .filter(q => q !== undefined) as Quest[];
+      .filter((q): q is Quest => q !== undefined); // Type guard to ensure q is Quest
   };
   const activeQuestsDetails = getActiveQuestsDetails();
 
@@ -97,12 +128,16 @@ const ProfileView: React.FC = () => {
   
   const getHcIcon = (hcId: string | null): React.ReactNode => {
     if (!hcId) return <Activity className="w-4 h-4 inline mr-1 text-muted-foreground"/>;
-    const hc = hcLibraryData.find(hc => hc.id === hcId);
-    if (hc && typeof hc.icon !== 'string') {
-        const IconComp = hc.icon;
-        return <IconComp className="w-4 h-4 inline mr-1 text-primary"/>;
+    const hc = hcLibraryData.find(h => h.id === hcId);
+    if (hc) {
+        if (typeof hc.icon === 'string') { // Emoji
+            return <span className="mr-1.5 text-base">{hc.icon}</span>;
+        } else if (React.isValidElement(React.createElement(hc.icon))) { // LucideIcon component
+            const IconComp = hc.icon;
+            return <IconComp className="w-4 h-4 inline mr-1 text-primary"/>;
+        }
     }
-    return hc?.icon || <Lightbulb className="w-4 h-4 inline mr-1 text-primary"/>;
+    return <Lightbulb className="w-4 h-4 inline mr-1 text-primary"/>; // Fallback
   }
 
 
@@ -128,7 +163,8 @@ const ProfileView: React.FC = () => {
                 <p className="text-sm text-muted-foreground">{currentWXP} WXP</p>
             </div>
         </div>
-        {wxpRemainingForNextLevel > 0 && wxpThresholdForNextLevel > wxpThresholdForCurrentLevel && (
+        {/* Check if not max level or next threshold is defined and greater than current */}
+        {wxpThresholdForNextLevel > currentWXP && wxpThresholdForNextLevel > wxpThresholdForCurrentLevel && (
           <>
             <div className="w-full bg-muted rounded-full h-2 my-1.5">
               <div className="bg-accent h-2 rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercentageWithinLevel}%` }}></div>
@@ -136,15 +172,15 @@ const ProfileView: React.FC = () => {
             <p className="text-xs text-muted-foreground text-right">{wxpRemainingForNextLevel} WXP to next level</p>
           </>
         )}
-         {wxpRemainingForNextLevel === 0 && <p className="text-xs text-accent mt-1">Max level reached or next threshold not defined!</p>}
+         {wxpThresholdForNextLevel <= currentWXP && <p className="text-xs text-accent mt-1">Max level reached or next threshold not defined!</p>}
       </div>
 
       {/* Primary Goal & Interests */}
       <div className="p-4 border rounded-lg bg-card">
         <h3 className="font-medium mb-2 text-foreground flex items-center"><Target className="w-5 h-5 mr-2 text-primary"/>Focus Areas</h3>
-        <p className="text-sm mb-1"><strong>Goal:</strong> <span className="font-normal text-muted-foreground">{userProfile.primaryGoal}</span></p>
+        <p className="text-sm mb-1"><strong>Goal:</strong> <span className="font-normal text-muted-foreground">{userProfile.primaryGoal || "Not set"}</span></p>
         <div className="text-sm"><strong>Interests:</strong>
-            {userProfile.interests.length > 0 ? (
+            {userProfile.interests && userProfile.interests.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                     {userProfile.interests.map(interest => (
                         <span key={interest} className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">{interest}</span>
@@ -153,6 +189,21 @@ const ProfileView: React.FC = () => {
             ) : <span className="font-normal text-muted-foreground ml-1">None specified</span>}
         </div>
       </div>
+      
+      {/* Potential Biases */}
+      {userProfile.potentialBiases && Object.keys(userProfile.potentialBiases).some(key => userProfile.potentialBiases[key] > 0) && (
+        <div className="p-4 border rounded-lg bg-card">
+            <h3 className="font-medium mb-2 text-foreground flex items-center"><ShieldQuestion className="w-5 h-5 mr-2 text-primary"/>Potential Biases to Explore</h3>
+            <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground space-y-0.5">
+                {Object.entries(userProfile.potentialBiases)
+                    .filter(([_, score]) => score > 0)
+                    .map(([bias, score]) => (
+                        <li key={bias}>{bias} (Score: {score})</li>
+                ))}
+            </ul>
+        </div>
+      )}
+
 
       {/* Active Quests */}
       <div className="p-4 border rounded-lg bg-card">
@@ -166,7 +217,13 @@ const ProfileView: React.FC = () => {
                     <span className="text-xs bg-accent/80 text-accent-foreground px-1.5 py-0.5 rounded">{quest.rewardWXP} WXP</span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-1.5">{quest.description}</p>
-                {/* Optional: Show quest steps progress if available */}
+                {quest.steps.map((step, index) => (
+                    <div key={index} className="flex items-center text-xs text-muted-foreground/80">
+                        <CheckSquare className={cn("w-3 h-3 mr-1.5", step.completed ? "text-positive" : "text-muted-foreground/50")} />
+                        <span>{step.description}</span>
+                        {/* Optionally show target values like (0/3) if available */}
+                    </div>
+                ))}
               </li>
             ))}
           </ul>
@@ -183,7 +240,7 @@ const ProfileView: React.FC = () => {
                 <p className="font-medium text-foreground mb-0.5 truncate" title={entry.challengeText}>{entry.challengeText}</p>
                 <div className="flex justify-between items-center text-muted-foreground">
                     <span className="flex items-center">{getHcIcon(entry.hcRelated)} {getHcName(entry.hcRelated)}</span>
-                    <span className="text-green-600 dark:text-green-400 font-medium">+{entry.wxpEarned} WXP</span>
+                    <span className="text-positive font-medium">+{entry.wxpEarned} WXP</span>
                 </div>
                 <p className="text-muted-foreground/70 text-right text-[10px] mt-0.5">{formatTimeAgo(entry.timestamp)}</p>
               </li>
