@@ -15,29 +15,29 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "src/assets/icons/icon16.png",
-      "48": "src/assets/icons/icon48.png",
-      "128": "src/assets/icons/icon128.png"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "background": {
-    "service_worker": "src/service_worker/service_worker.js"
+    "service_worker": "service_worker/service_worker.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["dist/content_scripts/content_script.js"],
+      "js": ["content_scripts/content_script.js"],
       "css": ["src/assets/styles.css"]
     }
   ],
   "icons": {
-    "16": "src/assets/icons/icon16.png",
-    "48": "src/assets/icons/icon48.png",
-    "128": "src/assets/icons/icon128.png"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/popup_src/assets/*", "src/assets/icons/*", "popup.html"],
+      "resources": ["popup_src/assets/*", "icons/*", "popup.html"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -1,0 +1,23 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icons/icon16.png" /> <!-- Adjusted path and type -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mindframe Popup</title>
+    <style>
+      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+      /* Minimal body style to ensure popup fits content */
+      html, body, #root {
+        width: 380px; /* Typical popup width */
+        height: 580px; /* Typical popup height */
+        overflow: hidden; /* Prevent scrollbars on the body itself */
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script> <!-- Path relative to this HTML file -->
+  </body>
+</html>

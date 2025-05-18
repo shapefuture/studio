@@ -16,17 +16,9 @@ export default defineConfig({
     emptyOutDir: true, // Clean the output directory before building
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, 'src/popup_src/index.html'),
-        // If content_script.tsx needs to be bundled by Vite (e.g., if it uses React heavily and JSX)
+        popup: resolve(__dirname, 'src/popup_src/popup.html'), // Changed from index.html to popup.html
         content_script: resolve(__dirname, 'src/content_scripts/content_script.tsx'),
-        // service_worker.ts will likely be compiled separately using tsc or esbuild
-        // as Vite is primarily for front-end SPA/MPA bundling.
-        // However, we can try to bundle it if it doesn't have Node.js specific dependencies
-        // or if we configure Vite correctly for library mode output for it.
-        // For simplicity, for now, we assume service_worker.ts is handled by a separate build step (e.g. tsc)
-        // and manifest.json points to its compiled JS output.
-        // If we want Vite to bundle service_worker.ts:
-        // service_worker: resolve(__dirname, 'src/service_worker/service_worker.ts'),
+        service_worker: resolve(__dirname, 'src/service_worker/service_worker.ts'), // Enabled service worker bundling
       },
       output: {
         entryFileNames: (chunkInfo) => {
@@ -36,10 +28,21 @@ export default defineConfig({
           if (chunkInfo.name === 'service_worker') {
             return 'service_worker/[name].js';
           }
-          return 'popup_src/assets/[name]-[hash].js';
+          // For popup related JS, output to popup_src/assets
+          if (chunkInfo.name === 'popup') { // Or whatever Vite names the entry chunk for popup.html
+            return 'popup_src/assets/[name]-[hash].js';
+          }
+          return 'assets/[name]-[hash].js'; // Default for other chunks if any
         },
-        chunkFileNames: 'popup_src/assets/[name]-[hash].js',
-        assetFileNames: 'popup_src/assets/[name]-[hash].[ext]',
+        chunkFileNames: 'popup_src/assets/[name]-[hash].js', // Chunks related to popup
+        assetFileNames: (assetInfo) => {
+          // CSS for popup goes into popup_src/assets
+          if (assetInfo.name?.endsWith('.css') && assetInfo.source?.includes('#root')) { // Heuristic for popup CSS
+            return 'popup_src/assets/[name]-[hash].[ext]';
+          }
+          // Other assets (images, fonts loaded by JS/CSS)
+          return 'assets/[name]-[hash].[ext]';
+        }
       },
     },
     // sourcemap: 'inline', // Enable inline source maps for easier debugging in extensions
