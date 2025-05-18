@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -11,7 +12,8 @@ import {
   Settings,
   ChevronDown,
   PanelLeftOpen,
-  PanelLeftClose
+  PanelLeftClose,
+  Sparkles
 } from 'lucide-react';
 
 import {
@@ -20,13 +22,12 @@ import {
   SidebarHeader,
   SidebarContent,
   SidebarFooter,
-  SidebarTrigger,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
   useSidebar,
-} from '@/components/ui/sidebar';
+} from '@/components/ui/sidebar'; // SidebarTrigger removed as it's part of Sidebar now.
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -40,14 +41,14 @@ import {
 import { Logo } from '@/components/logo';
 import { APP_NAME } from '@/lib/constants';
 import { Toaster } from '@/components/ui/toaster';
-import { useToast } from '@/hooks/use-toast'; // Added
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import React from 'react';
 
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/onboarding', label: 'Onboarding', icon: BookOpen },
+  { href: '/onboarding', label: 'Onboarding', icon: Sparkles }, // Changed Icon
   { href: '/profile', label: 'Profile', icon: User },
   { href: '/hc-gym', label: 'HC Gym', icon: Brain },
 ];
@@ -57,11 +58,12 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const [onboardingComplete, setOnboardingComplete] = React.useState(false);
+  const [onboardingComplete, setOnboardingComplete] = React.useState<boolean | null>(null); // Initialize with null
+  const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
+    setIsMounted(true);
     if (typeof window !== 'undefined') {
-      // Check localStorage directly for onboarding status
       const mindframeData = localStorage.getItem('mindframe_mvp_data_v1');
       if (mindframeData) {
           try {
@@ -78,13 +80,21 @@ export function AppShell({ children }: AppShellProps) {
   }, []);
 
 
+  if (!isMounted || onboardingComplete === null) { // Show loading state until onboarding status is known
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <Logo className="h-12 w-12 animate-pulse text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={true}> {/* Default to open for desktop */}
       <AppSidebar onboardingComplete={onboardingComplete} />
       <div className="flex flex-col flex-1">
         <AppHeader />
         <SidebarInset>
-          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background min-h-[calc(100vh-4rem)]"> {/* Ensure main content takes up space */}
             {children}
           </main>
         </SidebarInset>
@@ -110,53 +120,62 @@ function AppSidebar({ onboardingComplete }: { onboardingComplete: boolean }) {
   });
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
-      <SidebarHeader className="p-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" prefetch={false}>
-          <Logo />
-          {state === "expanded" && <span className="font-semibold text-lg">{APP_NAME}</span>}
+    <Sidebar 
+      collapsible={isMobile ? "offcanvas" : "icon"} 
+      className={cn(
+        "border-r glassmorphic !bg-sidebar/80 dark:!bg-sidebar/70 shadow-apple-lg", // Apply glassmorphic and custom bg
+        isMobile ? "w-[280px]" : "" // Sidebar width for mobile when open
+      )}
+    >
+      <SidebarHeader className="p-4 flex items-center justify-between h-16"> {/* Fixed height */}
+        <Link href="/" className="flex items-center gap-2.5" prefetch={false}>
+          <Logo className="h-7 w-7" />
+          {state === "expanded" && <span className="font-semibold text-lg tracking-tight">{APP_NAME}</span>}
         </Link>
         {!isMobile && (
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="text-sidebar-foreground">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="text-sidebar-foreground hover:bg-sidebar-accent/20">
             {open ? <PanelLeftClose /> : <PanelLeftOpen />}
             <span className="sr-only">Toggle Sidebar</span>
           </Button>
         )}
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="py-2"> {/* Add padding */}
         <SidebarMenu>
           {filteredNavItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
+            <SidebarMenuItem key={item.href} className="px-2">
               <Link href={item.href} passHref legacyBehavior>
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   className={cn(
-                    "w-full justify-start",
-                    state === "collapsed" && "justify-center"
+                    "w-full justify-start rounded-lg h-10 text-sm", // Standardized height and radius
+                    "data-[active=true]:bg-primary data-[active=true]:text-primary-foreground",
+                    state === "collapsed" && "justify-center !px-0",
+                    "hover:bg-sidebar-accent/50"
                   )}
                   tooltip={state === 'collapsed' ? item.label : undefined}
                 >
                   <item.icon className="h-5 w-5" />
-                  {state === "expanded" && <span>{item.label}</span>}
+                  {state === "expanded" && <span className="ml-2">{item.label}</span>}
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 border-t border-sidebar-border/50">
         <SidebarMenu>
-          <SidebarMenuItem>
+          <SidebarMenuItem className="px-2">
              <SidebarMenuButton
                 onClick={() => toast({ title: "Settings", description: "Settings page coming soon!"})}
                 className={cn(
-                  "w-full justify-start",
-                  state === "collapsed" && "justify-center"
+                  "w-full justify-start rounded-lg h-10 text-sm",
+                  state === "collapsed" && "justify-center !px-0",
+                   "hover:bg-sidebar-accent/50"
                 )}
                 tooltip={state === 'collapsed' ? "Settings" : undefined}
               >
               <Settings className="h-5 w-5" />
-              {state === "expanded" && <span>Settings</span>}
+              {state === "expanded" && <span className="ml-2">Settings</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -166,22 +185,26 @@ function AppSidebar({ onboardingComplete }: { onboardingComplete: boolean }) {
 }
 
 function AppHeader() {
-  const { isMobile, toggleSidebar } = useSidebar();
+  const { isMobile, toggleSidebar, open } = useSidebar();
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 shadow-sm">
+    <header className={cn(
+      "sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 dark:bg-background/70 backdrop-blur-lg px-4 md:px-6 shadow-apple",
+      isMobile ? "" : (open ? "md:pl-[calc(var(--sidebar-width)_+_1rem)]" : "md:pl-[calc(var(--sidebar-width-icon)_+_1rem)]"),
+      "transition-[padding-left] duration-200 ease-linear"
+    )}>
       {isMobile && (
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="shrink-0"
+          className="shrink-0 text-foreground/70 hover:text-foreground"
         >
           <PanelLeftOpen className="h-5 w-5" />
           <span className="sr-only">Toggle navigation menu</span>
         </Button>
       )}
       <div className="flex-1">
-        {/* Current page title could go here, or breadcrumbs */}
+        {/* Breadcrumbs or page title can go here */}
       </div>
       <UserMenu />
     </header>
@@ -193,24 +216,30 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src="https://picsum.photos/seed/user/40/40" alt="User avatar" data-ai-hint="user avatar" />
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+          <Avatar className="h-9 w-9">
+            <AvatarImage src="https://picsum.photos/seed/userPortrait/40/40" alt="User avatar" data-ai-hint="user portrait" />
             <AvatarFallback>U</AvatarFallback>
           </Avatar>
-          <ChevronDown className="ml-1 h-4 w-4 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+      <DropdownMenuContent className="w-56 shadow-apple-lg glassmorphic" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">Mindframe User</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              user@example.com
+            </p>
+          </div>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <Link href="/profile" passHref>
-          <DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer">
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </DropdownMenuItem>
         </Link>
-        <DropdownMenuItem onClick={() => toast({ title: "Settings", description: "Settings page coming soon!"})}>
+        <DropdownMenuItem onClick={() => toast({ title: "Settings", description: "Settings page coming soon!"})} className="cursor-pointer">
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>

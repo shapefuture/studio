@@ -3,25 +3,27 @@
 @tailwind utilities;
 
 body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer base {
   :root {
     --background: 220 20% 96.1%; /* Neutral Gray #F5F5F5 */
-    --foreground: 220 10% 3.9%; /* Dark Gray for text */
+    --foreground: 220 10% 10.9%; /* Darker Gray for text for better contrast */
 
     --card: 0 0% 100%;
-    --card-foreground: 220 10% 3.9%;
+    --card-foreground: 220 10% 10.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 10% 3.9%;
+    --popover-foreground: 220 10% 10.9%;
 
     --primary: 195 53% 79%; /* Calm Blue #ADD8E6 */
-    --primary-foreground: 195 50% 20%; /* Darker blue for contrast on primary */
+    --primary-foreground: 195 50% 18%; /* Darker blue for contrast on primary */
 
     --secondary: 220 14.3% 93.9%;
-    --secondary-foreground: 220 10% 9%;
+    --secondary-foreground: 220 10% 15%;
 
     --muted: 220 10% 89.8%;
     --muted-foreground: 220 8% 45.1%;
@@ -32,11 +34,10 @@ body {
     --positive: 120 61% 50%; /* Vibrant Green for positive actions */
     --positive-foreground: 0 0% 98%;
 
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 13% 91%;
+    --border: 220 13% 88%; /* Softer border */
     --input: 220 13% 91%;
     --ring: 195 53% 70%; /* Adjusted ring to match primary */
 
@@ -46,7 +47,7 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* Slightly larger default radius for Apple feel */
 
     /* Sidebar specific colors, ensuring they fit the theme */
     --sidebar-background: 220 20% 98%; /* Lighter than main background */
@@ -60,34 +61,34 @@ body {
   }
 
   .dark {
-    --background: 220 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 220 10% 7%; /* Darker background for modern feel */
+    --foreground: 0 0% 97%; /* Lighter foreground */
 
-    --card: 220 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 10% 10%; /* Darker card background */
+    --card-foreground: 0 0% 97%;
 
-    --popover: 220 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 10% 10%;
+    --popover-foreground: 0 0% 97%;
 
-    --primary: 195 53% 69%; /* Dark mode calm blue */
+    --primary: 195 53% 69%; 
     --primary-foreground: 195 50% 15%;
 
-    --secondary: 220 10% 14.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 10% 12.9%;
+    --secondary-foreground: 0 0% 97%;
 
-    --muted: 220 10% 14.9%;
+    --muted: 220 10% 12.9%;
     --muted-foreground: 0 0% 63.9%;
 
-    --accent: 120 61% 50%; /* Dark mode vibrant green */
+    --accent: 120 61% 55%; /* Brighter accent in dark mode */
     --accent-foreground: 0 0% 98%;
 
-    --positive: 120 61% 50%;
+    --positive: 120 61% 55%;
     --positive-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 10% 14.9%;
+    --border: 220 10% 18.9%; /* More subtle border in dark mode */
     --input: 220 10% 14.9%;
     --ring: 195 53% 60%;
 
@@ -97,7 +98,7 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 220 10% 10%; /* Dark sidebar background */
+    --sidebar-background: 220 10% 8%; /* Darker sidebar background */
     --sidebar-foreground: 0 0% 95.9%;
     --sidebar-primary: 195 53% 60%;
     --sidebar-primary-foreground: 195 50% 10%;
@@ -118,8 +119,65 @@ body {
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }
-  h1 { @apply text-3xl; }
-  h2 { @apply text-2xl; }
-  h3 { @apply text-xl; }
-  p { @apply leading-relaxed; }
+  h1 { @apply text-3xl lg:text-4xl; }
+  h2 { @apply text-2xl lg:text-3xl; }
+  h3 { @apply text-xl lg:text-2xl; }
+  p { @apply leading-relaxed text-base; }
+}
+
+@layer utilities {
+  .glassmorphic {
+    @apply bg-card/70 dark:bg-card/60 backdrop-blur-xl border border-white/20 dark:border-white/10;
+  }
+  
+  .shadow-apple {
+    @apply shadow-[0_1px_2px_rgba(0,0,0,0.03),_0_3px_8px_rgba(0,0,0,0.04)];
+  }
+  .dark .shadow-apple {
+     @apply shadow-[0_1px_2px_rgba(0,0,0,0.1),_0_3px_8px_rgba(0,0,0,0.15)]; /* Dark mode shadows tend to be more pronounced or rely on bg contrast */
+  }
+
+  .shadow-apple-lg {
+    @apply shadow-[0_4px_12px_rgba(0,0,0,0.05),_0_10px_30px_rgba(0,0,0,0.06)];
+  }
+   .dark .shadow-apple-lg {
+    @apply shadow-[0_4px_12px_rgba(0,0,0,0.15),_0_10px_30px_rgba(0,0,0,0.2)];
+  }
+
+  .animate-slideInUp {
+    animation: slide-up-fade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    background: linear-gradient(60deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite;
+  }
+  .dark .animate-shimmer {
+    background: linear-gradient(60deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  }
+
+  /* Consistent button styling */
+  .btn-apple {
+    @apply inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  .btn-apple-primary {
+    @apply btn-apple bg-primary text-primary-foreground shadow-apple hover:bg-primary/90 active:scale-[0.98];
+  }
+  .btn-apple-secondary {
+    @apply btn-apple bg-secondary text-secondary-foreground shadow-apple hover:bg-secondary/80 active:scale-[0.98];
+  }
+  .btn-apple-outline {
+    @apply btn-apple border border-primary/50 text-primary shadow-apple hover:bg-primary/10 active:scale-[0.98];
+  }
+  .btn-apple-ghost {
+    @apply btn-apple text-primary hover:bg-primary/10 active:scale-[0.98];
+  }
+  .btn-apple-accent {
+     @apply btn-apple bg-accent text-accent-foreground shadow-apple hover:bg-accent/90 active:scale-[0.98];
+  }
 }
